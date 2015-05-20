@@ -1,0 +1,73 @@
+<?xml version='1.0' encoding='utf-8'?>
+<note class='filter' xmlns='http://www.lotus.com/dxl' version='9.0' maintenanceversion='1.2'
+ replicaid='43257E3C0027808F'>
+<noteinfo noteid='11be' unid='2A541A51E0B6D1B343257E4A00498CDC' sequence='1'>
+<created><datetime>20150519T162321,88+03</datetime></created>
+<modified><datetime>20150519T162322,81+03</datetime></modified>
+<revised><datetime>20150519T162322,80+03</datetime></revised>
+<lastaccessed><datetime>20150519T162322,81+03</datetime></lastaccessed>
+<addedtofile><datetime>20150519T162322,81+03</datetime></addedtofile></noteinfo>
+<updatedby><name>CN=Lotus Designer/O=PKC</name></updatedby>
+<wassignedby><name>CN=Lotus Designer/O=PKC</name></wassignedby>
+<item name='$TITLE' sign='true'><text>Напоминание о подписи</text></item>
+<item name='$AssistType' sign='true'><number>65412</number></item>
+<item name='$AssistLastRun' sign='true'>
+<rawitemdata type='400'>
+AAAAAAAAAAA=
+</rawitemdata></item>
+<item name='$AssistDocCount' sign='true'><number>0</number></item>
+<item name='$FlagsExt' sign='true'><text/></item>
+<item name='$AssistFlags' sign='true'><text>s</text></item>
+<item name='$MachineName' sign='true'><text>CN=Moscow1/O=PKC</text></item>
+<item name='$AssistTrigger'><text>1</text></item>
+<item name='$AssistInfo' sign='true'>
+<rawitemdata type='11'>
+AQABAAEAAgABACCxLgDAV34AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+</rawitemdata></item>
+<item name='$AssistQuery' sign='true'>
+<rawitemdata type='f'>
+gQYAAAAAiP88AAAAAAAyAAXNBeAgBe8F7gXkBe8F6AXxBehcBc8F7iAF5AXgBfIF5SAF7gXyBe8F
+8AXgBeIF6gXo
+</rawitemdata></item>
+<item name='$AssistAction' sign='true'>
+<rawitemdata type='10'>
+gQKE/2YBAAAAAFwBXAEBAJgABABzdWJqAQCIAAXCIAXBBcQgBc8F8AXuBeUF6gXyBfsgBegF8QX1
+Be4F5AX/BfkF6AX1IAXkBe4F6i4gBeUF8QXyBfwgBeQF7gXqBfMF7AXlBe0F8gX7IAXtBeAgBe8F
+7gXkBe8F6AXxBfwgBcIF4AX4BeUF7AXzIAXwBfMF6gXuBeIF7gXkBegF8gXlBesF/i4DAAcADAAF
+AAkxUzJTAAgAkgAFAAwARXhlY3V0b3JBZGRyAQAAAAoCrwB0AAoAAQAAAK4AagAFAAwARXhlY3V0
+b3JBZGRyAQAAAAEAAAAFAAQAc3ViagEAKQAFzQXgBeYF7AXoBfIF5SAF7QXgIAXxBfEF+wXrBeoF
+8yAF7QXoBeYF5QCKACICAQAAAAIAJwAAAAAAAACyB64ABAC1AwMABwAQAAkACTBSNFM1UzhSAAAA
+CABmAAMABwAMAAYACTBSTDFT
+</rawitemdata></item>
+<item name='$AssistAction_Ex' sign='true'>
+<rawitemdata type='14'>
+gQI=
+</rawitemdata></item>
+<item name='$Restricted' sign='true'><number>1</number></item>
+<item name='$Flags'><text>Sf3</text></item>
+<item name='$DesignerVersion'><text>8</text></item>
+<item name='$AssistRunInfo' summary='true'>
+<rawitemdata type='3'>
+BgAAAgAACAC6EQAAAAAAAAUAAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAiqRYAOV3JcP/1C4AwXclwwAAAAAAAAAAAAAAAAAAAAAAAAAAqqqqqqqq
+qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+qqqqqqqqqqqqqqqqqqqqqqqq
+</rawitemdata></item>
+<item name='$AssistVersion'><datetime dst='true'>20101221T160658,98+04</datetime></item></note>
+

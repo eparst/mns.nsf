@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?><note class="form" maintenanceversion="1.2" replicaid="43257E3C0027808F" version="9.0" xmlns="http://www.lotus.com/dxl">
+<noteinfo noteid="12ee" sequence="1" unid="837FEED1811D132C43257E4A0049ADDA">
+<created><datetime>20150519T162446,34+03</datetime></created>
+<modified><datetime>20150519T162447,05+03</datetime></modified>
+<revised><datetime>20150519T162447,04+03</datetime></revised>
+<lastaccessed><datetime>20150519T162447,05+03</datetime></lastaccessed>
+<addedtofile><datetime>20150519T162447,05+03</datetime></addedtofile></noteinfo>
+<updatedby><name>CN=Lotus Designer/O=PKC</name></updatedby>
+<wassignedby><name>CN=Lotus Designer/O=PKC</name></wassignedby>
+<item name="$TITLE"><text>vwcal3.gif</text></item>
+<item name="$ImagesWide" sign="true"><number>1</number></item>
+<item name="$ImagesHigh" sign="true"><number>1</number></item>
+<item name="$ImagesColorize" sign="true"><number>0</number></item>
+<item name="$ImageNames" sign="true"><text>vwcal3.gif</text></item>
+<item name="$Flags"><text>34CiQPr</text></item>
+<item name="$DesignerVersion"><text>8.5.3</text></item>
+
+</note>

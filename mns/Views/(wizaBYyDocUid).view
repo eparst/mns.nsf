@@ -1,0 +1,36 @@
+<?xml version='1.0' encoding='utf-8'?>
+<note class='view' xmlns='http://www.lotus.com/dxl' version='9.0' maintenanceversion='1.2'
+ replicaid='43257E3C0027808F'>
+<noteinfo noteid='54a' unid='44257BD60025B0BF44257D5D00223C6B' sequence='5'>
+<created><datetime>20140924T101356,91+04</datetime></created>
+<modified><datetime>20150519T161035,42+03</datetime></modified>
+<revised><datetime>20150519T161035,41+03</datetime></revised>
+<lastaccessed><datetime>20150519T161035,42+03</datetime></lastaccessed>
+<addedtofile><datetime>20150519T161035,40+03</datetime></addedtofile></noteinfo>
+<updatedby><name>CN=Lotus Designer/O=PKC</name></updatedby>
+<wassignedby><name>CN=Lotus Designer/O=PKC</name></wassignedby>
+<item name='$FormulaClass' sign='true'><text>1</text></item>
+<item name='$TITLE' sign='true'><text>(wizaBYyDocUid)</text></item>
+<item name='$Index' sign='true'><text/></item>
+<item name='$Formula' summary='true' sign='true'><formula compiled='true'>
+iAACABQABABpbmZvBQAEAGluZm8DAAUAKgAmAAQACQAEAAkABABEb2N1bVVuaWRpbmZvJENvbmZs
+aWN0JFJFRgQABAAAAC4ABQAEAEZvcm0BAAQAd2l6YQoCBQAJAERvY3VtVW5pZAABAAAACwIcAgMA
+BwAWABAACUwxUzJTM1M0UzVTNlM3Uw==
+</formula></item>
+<item name='$Collation' summary='true'>
+<rawitemdata type='2'>
+FgABAABECGYHAAAJAERvY3VtVW5pZA==
+</rawitemdata></item>
+<item name='$ViewFormat' summary='true' sign='true'>
+<rawitemdata type='5'>
+AQACAAIACAAAAFZDAwAJAAEAAAAAAFAAAQAACgABAAAAAAAAAAICAAAAVkMAAAQAAAAWAAAAeAEB
+AAAKAAAAAAAAAAAAAgIAAABEb2N1bVVuaWQjaW5mbxYAAgAUAAQAaW5mbwUABABpbmZvAwAmAAEA
+AAABAQAJAQAACgEBDgoAAAEArSsBAAEAAQAAAAAAAAAAAFdDAQEACQAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAP//AAAAAAAAAAAAAAAAAABXQwEBAAkAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAD//wAA
+AAAAAAAAAAAAAAAAQgAAAAAAAQD///8ABQD///8AAQAAAAAAAAAAAAAAAAABAP///wABAP///wAA
+AAEAAAAAAAEAAAAAAAEAAAAAAAAACAAAAAAAAQA=
+</rawitemdata></item>
+<item name='$Flags'><text>PY</text></item>
+<item name='$Comment' sign='true'><text>!Все БД с согласованием! чтобы найти отчет по основному согласованию</text></item>
+<item name='$DesignerVersion' sign='true'><text>8.5</text></item></note>
+

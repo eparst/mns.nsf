@@ -1,0 +1,95 @@
+'++LotusScript Development Environment:2:5:(Options):0:72
+Option Public
+Option Declare
+Use "limage"
+
+'++LotusScript Development Environment:2:5:(Forward):0:1
+Declare Sub MakeCommentLS
+Declare Function FromMain2015(db, FieldName$)
+
+'++LotusScript Development Environment:2:5:(Declarations):0:2
+
+'++LotusScript Development Environment:2:2:Initialize:0:10
+
+'++LotusScript Development Environment:2:2:MakeCommentLS:1:8
+Sub MakeCommentLS
+	On Error GoTo ErrHnd
+	Dim ws As New NotesUIWorkspace, sess As New NotesSession, imagedoc As NotesDocument, pardoc As NotesDocument
+	Dim curdoc As NotesDocument, curdb As NotesDatabase, uidoc As NotesUIDocument, it1 As NotesItem, item As NotesItem
+	Set uidoc = ws.CurrentDocument
+	Set curdb = sess.CurrentDatabase
+	Set curdoc = ws.CurrentDocument.Document ' curdb.GetDocumentByUNID(unid$)
+	If curdoc.IsNewNote Then
+		If MessageBox ( "Для вложения необходимо сохранить текущий документ! Сохранить?"  , 4 + 32 + 256 + 0  , "Сохранить!" ) = 6 Then
+			Call curdoc.Save(True,True)
+		Else
+			MsgBox "продолжение не возможно..."
+			Exit Sub
+		End If
+	End If
+	Set imagedoc = curdb.CreateDocument 
+'%%%%%%%ДОСТУП
+	Set it1 = imagedoc.ReplaceItemValue("AuthorNames_Rep",FromMain2015(curdb,"servgroup"))
+	Call it1.AppendToTextList("Servers_PKC")
+	Call it1.AppendToTextList("Cluster_Strong")
+	it1.IsAuthors = True
+	imagedoc.DefaultReaders = "[CanReadAllDocs]"
+	imagedoc.DefaultEditors = "[CanEditAllDocs]"
+	Set item =  imagedoc.GetFirstItem( "DefaultReaders" )
+	item.IsReaders = True
+	Set item =  imagedoc.GetFirstItem( "DefaultEditors" )
+	item.IsAuthors = True
+	Set it1 = imagedoc.ReplaceItemValue("AuthorNames",curdoc.AuthorNames)
+	it1.IsAuthors = True	
+	Set it1 = imagedoc.ReplaceItemValue("Editors",curdoc.Editors)
+	Set it1 = imagedoc.ReplaceItemValue("ReaderNames",curdoc.ReaderNames)
+	it1.IsReaders = True	
+	Set it1 = imagedoc.ReplaceItemValue("Readers",curdoc.Readers)
+'%%%%%%%	
+	Dim view As NotesView
+	imagedoc.imagedocUnid = curdoc.UniversalID 
+	imagedoc.imagedocDbRepl = curdoc.ParentDatabase.ReplicaID
+	imagedoc.AttachType = curdoc.Form(0)
+	imagedoc.Form = "comment"
+'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	
+	Dim rtitem As NotesRichTextItem	
+	Dim rtitem3 As NotesRichTextItem	
+	Dim object As NotesEmbeddedObject
+	Set rtitem3 = New NotesRichTextItem( imagedoc, "Body" )	
+'	Dim comm As Variant
+	Dim comm As String
+	If Not ws.DialogBox("comment1", True , True , False , False, False, False , "Введите комментарий", imagedoc, True , False , True) Then Exit Sub
+	comm = imagedoc.Body1(0) 'Getfirstitem("Body").Text
+	If comm = "" Then MsgBox "Комментарий не заполнен" : Exit Sub
+	Set rtitem = imagedoc.ReplaceItemValue("Body",comm )
+	imagedoc.InView = comm ' Replace(Replace(imagedoc.Body,Chr(13),""),Chr(10),"")
+	Call imagedoc.Save(True,True)
+	Call ws.ViewRefresh	
+	Exit Sub
+ErrHnd:
+	Call errh(" click Добавить из комментарий ")
+End Sub
+
+'++LotusScript Development Environment:2:1:FromMain2015:1:8
+Function FromMain2015(db, FieldName$)
+	On Error GoTo ErrHnd
+	Dim ss As New NotesSession, doc As NotesDocument, dc As NotesDocumentCollection, qqqq$, dbName As String
+ 	dbName = db.FilePath
+     '----- Открываем базу данных "Настройка "
+	If Right( dbName, 3 ) = "nsf" Then
+		dbName = Mid( dbName, 1, Len( dbName ) - Len( db.FileName ) ) & "main.nsf"
+	ElseIf Right( dbName, 3 ) = "NSF" Then
+		dbName = Mid( dbName, 1, Len( dbName ) - Len( db.FileName ) ) & "MAIN.NSF"
+	End If 
+	Dim db1 As NotesDatabase
+	Set db1 = New NotesDatabase(db.Server, db.FilePath )
+	If Not db1.IsOpen Then MsgBox "Не найдена база данных настроек! Отслеживание статуса не возможно!" : Exit Function
+	qqqq$ ="Form = ""DbSetup"" & @UpperCase(DbFile) = @UpperCase(""" + db.FileName + """)"
+	Set dc = db1.Search(qqqq$ , Nothing, 0)
+'	Set dc = db1.Search("Form = ""DbSetup"" & @UpperCase(DbFile) = @UpperCase(""" + db.FileName + """)", Nothing, 0)
+	Set doc = dc.GetFirstDocument
+	If doc Is Nothing Then Call errh(" Function FromMain  Не найден документ настроек! ") : Exit Function
+	FromMain2015 = doc.getitemvalue(FieldName$)(0)		
+	Exit Function
+ErrHnd: Call errh(" Function FromMain2015 ")
+End Function

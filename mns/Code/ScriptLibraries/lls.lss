@@ -1,0 +1,256 @@
+'++LotusScript Development Environment:2:5:(Options):0:74
+%REM
+	Library дды
+	Created Mar 17, 2015 by Lotus Designer/PKC
+	Description: Comments for Library
+%END REM
+Option Public
+Option Declare
+Use "errh2"
+Use "ProgressBar"
+
+'++LotusScript Development Environment:2:5:(Forward):0:1
+Declare Sub qLog22(ArFields, qount, confUnid) 'pardbpatch$, dbtask, DocUID$, mustremove As Boolean, fname$, removeOnClose As Boolean)
+Declare Sub ftsearch(qoutline As Boolean)
+Declare Sub ShowLog(doc)
+Declare Sub ftsearchAdmin(qoutline As Boolean)
+Declare Sub WriteToLog(curdoc, FieldName$, FieldValue$)
+Declare Sub ChangeField(curdoc, FieldName$, FieldValue$)
+
+'++LotusScript Development Environment:2:5:(Declarations):0:2
+
+'++LotusScript Development Environment:2:2:qLog22:1:8
+Sub qLog22(ArFields, qount, confUnid) 'pardbpatch$, dbtask, DocUID$, mustremove As Boolean, fname$, removeOnClose As Boolean)
+	On Error GoTo ErrHnd	
+	Dim ss As New NotesSession, view As NotesView, confUnidCol As NotesDocumentCollection, it2 As NotesItem, jj As Long
+%REM
+	If pardbpatch$ = "" Then pardbpatch$ = ss.CurrentDatabase.Filepath
+	Set view = ss.CurrentDatabase.getview("(qlog)") 'dbtask
+	Set confUnidCol = view.Getalldocumentsbykey(CStr(ss.username), True)
+	If confUnidCol.Count = 0 Or confUnidCol.Count > 1 Then 
+		If confUnidCol.Count > 1 Then Call confUnidCol.Removeall(True)
+		Set confUnid = ss.CurrentDatabase.Createdocument()
+		confUnid.Form = "qlog"
+	Else
+		Set confUnid = confUnidCol.Getfirstdocument()
+%END REM
+	confUnid.Form = "qlog"
+		ForAll it In confUnid.Items ' поля для поиска
+			If InStr(it.Name, "search_") > 0 Then ' And Not doc.GetItemValue(itName.Name)(0) Is Null Then
+				If FullTrim(confUnid.GetItemValue(it.Name)(0)) <> "" Then
+					it.Remove
+				End If
+			End If
+		End ForAll
+'	End If
+	Set it2 = confUnid.Replaceitemvalue("un", ss.username)
+	it2.Isauthors = True
+'			confUnid.ViewTaskUnid = DocUID$ confUnid.ViewDocDBUnid = DocUID$
+'			Call confUnid.Replaceitemvalue(fname$, DocUID$)
+	Stop
+	For jj = 0 To qount
+		Call confUnid.ReplaceItemValue(ArFields(0, jj), ArFields(1, jj) )
+	Next
+	Call confUnid.save(True,True)	
+	Exit Sub
+ErrHnd:  
+	Call errh20(" qLog22 ", Nothing)
+	Exit Sub
+End Sub
+
+'++LotusScript Development Environment:2:2:ftsearch:1:8
+Sub ftsearch(qoutline As Boolean)
+	On Error GoTo ErrHnd	
+	On Error 4005 GoTo q4005
+	Dim w As New NotesUIWorkspace, s As New NotesSession, db As NotesDatabase, agent As NotesAgent, doc As NotesDocument
+	Dim uidb As NotesUIDatabase, vc As NotesViewEntryCollection, ff As NotesView, j As Long, stub As Boolean
+	Set db = s.Currentdatabase
+'	Set uidb = w.CurrentDatabase
+	stub = True
+	If InStr(s.Platform,"Windows") = 0 Then stub = False
+'	Call uidb.OpenView("report")', "", False, True)
+	Set ff = db.GetView("report")
+	Call w.Viewrefreshbydbid(db.Replicaid, "report")', Calendarview)
+'	Call ff.Refresh
+	%REM
+	Set vc = ff.AllEntries
+	If vc.Count > 0 Then Call vc.RemoveAllFromFolder("report")
+	Call ff.Refresh
+	%END REM
+'	Call w.OpenDatabase( db.Server, db.FilePath, "report", "", False, temp )
+'	Call uidb.OpenNavigator("Outline_rep",True)
+	Set doc = db.CreateDocument
+	If Not w.DialogBox("fSearch",True,True,False,False,False,False,"Форма для поиска",doc,True,False,False) Then Exit Sub
+	j = 0
+	ForAll itName In doc.Items ' поля для поиска
+		If InStr(itName.Name, "search_") > 0 Then ' And Not doc.GetItemValue(itName.Name)(0) Is Null Then
+			If FullTrim(doc.GetItemValue(itName.Name)(0)) <> "" Then
+				ReDim Preserve arr(1, j)
+				arr(0, j) = itName.Name
+				arr(1, j) = doc.GetItemValue(itName.Name)(0)
+				j = j + 1
+			End If
+		End If
+	End ForAll
+	If j = 0 Then MsgBox "Критерии для поиска не заполнены..."  : Exit Sub
+	If Stub Then
+		Dim pb As New LNProgressbar( True )
+		Call pb.SetProgressRange ( 4 )
+		Call pb.SetProgressPos( 1 )
+		Call pb.SetText( "Подождите... Идет поиск!", "" )
+	End If
+	Call qLog22(arr, j - 1, doc)
+	If Stub Then Call pb.SetProgressPos( 2 )
+'nochmal:
+	Set agent = db.Getagent("agFTSearch")
+	Call agent.Run(doc.Noteid)
+	If Stub Then Call pb.SetProgressPos( 3 )
+	Call w.Viewrefreshbydbid(db.Replicaid, "report")
+	If qoutline Then
+		Set uidb = w.CurrentDatabase
+		Call w.Settargetframe("right")
+		stop
+		Call uidb.OpenView("report")', False, True)
+	Else
+		Call w.OpenFrameSet("MenuFS_rep")
+	End If
+	If Stub Then
+		Call pb.SetProgressPos( 4 )
+		Delete pb
+	End if 	
+	MessageBox "Найдено документов: " + CStr(ff.Entrycount), 0, "Поиск."
+'		MsgBox "log= "  + CStr(doc.Log(0)) + ", Entrycount= " + CStr(ff.Entrycount)
+	Call w.Viewrefreshbydbid(db.Replicaid, "report")
+	Exit Sub
+q4005:
+	MsgBox "Произведены первичные настройки поиска! Пожалуйста нажмите кнопку ПОИСК еще раз." 
+'	GoTo nochmal
+	Exit Sub
+ErrHnd:  
+	If Not pb Is Nothing Then Delete pb
+'MsgBox CStr(Error) + " " + CStr(Err) + " in " + CStr(Erl)	
+	Call errh20(" Поиcк ", Nothing)
+	Exit Sub
+End Sub
+
+'++LotusScript Development Environment:2:2:ShowLog:1:8
+Sub ShowLog(doc)
+	Dim w As New NotesUIWorkspace, s As New NotesSession, db As NotesDatabase, agent As NotesAgent
+'	MsgBox doc.log_ChO(0)
+	doc.Form = "qlog"
+	Call w.Dialogbox("qlog", True, True, True, False, False, True, "Журнал", doc, true, True, False)
+End Sub
+
+'++LotusScript Development Environment:2:2:ftsearchAdmin:1:8
+Sub ftsearchAdmin(qoutline As Boolean)
+	On Error GoTo ErrHnd	
+	On Error 4005 GoTo q4005
+	Dim w As New NotesUIWorkspace, s As New NotesSession, db As NotesDatabase, agent As NotesAgent, doc As NotesDocument, confUnid As NotesDocument
+	Dim uidb As NotesUIDatabase, vc As NotesViewEntryCollection, ff As NotesView, j As Long, stub As Boolean, view As notesview
+	Set db = s.Currentdatabase
+	stub = false
+	If InStr(s.Platform,"Windowsgbox ") = 0 Then stub = False
+	Set uidb = w.CurrentDatabase
+	Set ff = db.GetView("report")
+'print cstr(ff.Entrycount)
+
+	Call w.Viewrefreshbydbid(db.Replicaid, "report")', Calendarview)
+	Set doc = db.CreateDocument
+	If Not w.DialogBox("fSearch2",True,True,False,False,False,False,"Форма для поиска",doc,True,False,False) Then Exit Sub
+nochmal:
+	j = 0
+	ForAll itName In doc.Items ' поля для поиска
+		If InStr(itName.Name, "search_") > 0 Then ' And Not doc.GetItemValue(itName.Name)(0) Is Null Then
+			If FullTrim(doc.GetItemValue(itName.Name)(0)) <> "" Then
+				ReDim Preserve arr(1, j)
+				arr(0, j) = itName.Name
+				arr(1, j) = doc.GetItemValue(itName.Name)(0)
+				j = j + 1
+			End If
+		End If
+	End ForAll
+	If j = 0 Then MsgBox "Критерии для поиска не заполнены..."  : Exit Sub
+	If Stub Then
+		Dim pb As New LNProgressbar( True )
+		Call pb.SetProgressRange ( 4 )
+		Call pb.SetProgressPos( 1 )
+		Call pb.SetText( "Подождите... Идет поиск!", "")
+	End If
+	Call qLog22(arr, j - 1, doc)
+	If Stub Then Call pb.SetProgressPos( 2 )
+	Set agent = db.Getagent("agFTSearch2")
+	Call agent.Run(doc.Noteid)
+	'''
+	Set view = db.getview("(qlog)") 'dbtask
+	Set confUnid = view.Getalldocumentsbykey(CStr(s.username), True).Getfirstdocument()
+	If Not confUnid Is Nothing Then
+		If confUnid.Hasitem("logError") Then MsgBox confUnid.logError(0)
+	End If
+	'''''
+	If Stub Then Call pb.SetProgressPos( 3 )
+	Call w.Viewrefreshbydbid(db.Replicaid, "report")
+	If qoutline Then
+		Set uidb = w.CurrentDatabase
+		Call w.Settargetframe("right")
+		Call uidb.OpenView("report")', False, True)
+	Else
+		Call w.OpenFrameSet("MenuFS_rep")
+	End If
+	If Stub Then
+		Call pb.SetProgressPos( 4 )
+		Delete pb
+	End if
+	MessageBox "Найдено документов: " + CStr(ff.Entrycount), 0, "Поиск."
+	'		MsgBox "log= "  + CStr(doc.Log(0)) + ", Entrycount= " + CStr(ff.Entrycount)
+	Call w.Viewrefreshbydbid(db.Replicaid, "report")
+	Exit Sub
+q4005:
+'	Set uidb = w.CurrentDatabase
+'	Call w.Settargetframe("right")
+'	Call uidb.OpenView("report")', False, True)
+	GoTo nochmal
+'	MsgBox "Произведены первичные настройки поиска! Пожалуйста нажмите кнопку ПОИСК еще раз." 
+	Exit Sub
+ErrHnd:  
+	If Not pb Is Nothing Then Delete pb
+	'MsgBox CStr(Error) + " " + CStr(Err) + " in " + CStr(Erl)	
+	Call errh20(" Поиcк ", Nothing)
+	Exit Sub
+End Sub
+
+'++LotusScript Development Environment:2:2:WriteToLog:1:8
+Sub WriteToLog(curdoc, FieldName$, FieldValue$)
+	Dim q$, it As NotesItem, s As New NotesSession, nam As NotesName, qname$
+	Set nam = New NotesName(s.Username)
+
+	qname$ = strtoken(nam.Common, " ", 1) + " " + Left(StrToken(nam.Common, " ", 2),1) + ". " + Left(StrToken(nam.Common, " ", 3),1) + "." 
+	q$ = "Дата: " +  CStr(Now()) + ", Автор изменений: " + qname$ + ", значение с " + curdoc.GetItemValue(FieldName$)(0) + " на " + FieldValue$
+	If curdoc.HasItem("log_" + FieldName$) Then
+		Set it = curdoc.GetFirstItem("log_" + FieldName$)
+		Call it.AppendToTextList(q$)
+	Else
+		Call curdoc.ReplaceItemValue("log_" + FieldName$, q$)
+	End If
+End Sub
+
+'++LotusScript Development Environment:2:2:ChangeField:1:8
+Sub ChangeField(curdoc, FieldName$, FieldValue$)
+	On Error GoTo ErrHnd	
+	Dim w As New NotesUIWorkspace, s As New NotesSession, db As NotesDatabase, agent As NotesAgent,  col As NotesDocumentCollection
+	Dim it As NotesItem, q$, doc_t As NotesDocument, unid$
+	Set db = s.Currentdatabase
+	If curdoc.hasitem(FieldName$) Then
+		If curdoc.getItemValue(FieldName$)(0) = FieldValue$ Then Exit sub
+	End If
+	Call WriteToLog(curdoc, FieldName$, FieldValue$)
+		Call curdoc.ReplaceItemValue(FieldName$, FieldValue$)
+		Call curdoc.Save(True, True)
+		unid$ = curdoc.universalid
+		Call w.Currentdocument.Close(True)
+		Set doc_t = db.Getdocumentbyunid(unid$)
+		Call w.Editdocument(False, doc_t)
+		Exit Sub
+ErrHnd:  
+	Call errh20(" ChangeField " + FieldName$, Nothing)
+	Exit Sub
+End Sub

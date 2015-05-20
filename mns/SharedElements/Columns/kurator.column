@@ -1,0 +1,47 @@
+<?xml version='1.0' encoding='utf-8'?>
+<note class='view' xmlns='http://www.lotus.com/dxl' version='9.0' maintenanceversion='1.2'
+ replicaid='43257E3C0027808F'>
+<noteinfo noteid='135a' unid='7955A0DB2525930843257E4A0049BCFA' sequence='1'>
+<created><datetime>20150519T162525,06+03</datetime></created>
+<modified><datetime>20150519T162525,18+03</datetime></modified>
+<revised><datetime>20150519T162525,17+03</datetime></revised>
+<lastaccessed><datetime>20150519T162525,18+03</datetime></lastaccessed>
+<addedtofile><datetime>20150519T162525,18+03</datetime></addedtofile></noteinfo>
+<updatedby><name>CN=Lotus Designer/O=PKC</name></updatedby>
+<wassignedby><name>CN=Lotus Designer/O=PKC</name></wassignedby>
+<item name='$FormulaClass' sign='true'><text>1</text></item>
+<item name='$SourceSeqTime'><datetime>20150514T161447,28+03</datetime></item>
+<item name='$SourceSequence'><text>00000001</text></item>
+<item name='$SourceURL'><textlist><text>Notes:///43257E3C0027808F//E4C0380AE58DD39943257E450048C3D9</text><text
+>Notes:///43257E3C0027808F:43257E3C0027808F:718C9520//7CE</text></textlist></item>
+<item name='$ClassName'><text>View</text></item>
+<item name='$SourceDbPath'><text>CN=Moscow1/O=PKC!!SED_PKCM\mns.nsf</text></item>
+<item name='$CacheDocVersion'><number>1</number></item>
+<item name='$TITLE' sign='true'><text>kurator</text></item>
+<item name='$Index' sign='true'><text/></item>
+<item name='$Formula' summary='true' sign='true'><formula compiled='true'>
+LAAFAB4AGQADAAIACQAEAFRvJENvbmZsaWN0JFJFRgAEAAQAAAAIAGYAAwA=
+</formula></item>
+<item name='$Collation' summary='true'>
+<rawitemdata type='2'>
+BgAAAABE
+</rawitemdata></item>
+<item name='$Collation1' summary='true'>
+<rawitemdata type='2'>
+DwABAABEgGYAAAACAFRv
+</rawitemdata></item>
+<item name='$Collation2' summary='true'>
+<rawitemdata type='2'>
+DwABAABEgWYAAAACAFRv
+</rawitemdata></item>
+<item name='$ViewFormat' summary='true' sign='true'>
+<rawitemdata type='5'>
+AQABAAEACAAAAFZDAAMCAA4AAAAAAMMAAQAACAAAAAAAAAAAAAICAAAAVG8FygXzBfAF4AXyBe4F
+8CYAAQAAAAEBAAkBAAAKAQEOCgAAAQCtKwEAAQABAAAAAAAAAAAAV0MBAQAJAAAAAAAAAAAAAAAA
+AAAAAAAABAAAAAAA//8AAAAAAAAAAAAAAAAAAEIAAAAAAAEA////AAUA////AAEAAAAAAAAAAAAA
+AAAAAQD///8AAQD///8AAAABAAAAAAABAAAAAAABAAAAAAAAAAgAAAAAAAEA
+</rawitemdata></item>
+<item name='$Comment' sign='true'><text/></item>
+<item name='$Flags'><text>^Y</text></item>
+<item name='$DesignerVersion'><text>8.5.3</text></item></note>
+

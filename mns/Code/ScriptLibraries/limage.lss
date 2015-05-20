@@ -1,0 +1,2211 @@
+'++LotusScript Development Environment:2:5:(Options):0:74
+Option Public
+Use "Permission2" 
+Use "FieldList"
+Use "MakeLink11"
+Use "main"
+Use "ProgressBar"
+Use "lib2013"
+Use "2015"
+Use "FileAttachLS"
+
+'++LotusScript Development Environment:2:5:(Forward):0:1
+Declare Sub SendToSignII	
+Declare Function fOpenDocAndWait( pstrDocPath As String, plngWindowStyle As Long ) As Long
+Declare Sub GetImage(curdoc, imagedocUnid,ImageAll As Boolean)
+Declare Sub queryOpenImage(Cont)
+Declare Sub getpar(tmp,curdb, typ$,st$,qq$)
+Declare Function MakeImageDoc(curdoc, curdb) As NotesDocument
+Declare Sub MakeFromBuff
+Declare Function GetZam(fname$, nam$,dostup,qadd) As Variant
+Declare Function fFindEXE(stFile As String, _
+stDir As String) _
+As String
+Declare Function checkAssistZam(usern$) As String
+Declare Sub MakeFromBuffOLD
+Declare Sub SynHro(curdocs As NotesDocumentCollection)
+Declare Sub SendToSign
+Declare Sub ShellWait(Pathname As String, WindowStyle As Long)
+Declare Sub getresp(tmp,col)
+Declare Sub addAssist
+Declare Function GetAss(fname$, nam$,dostup,qadd) As Variant
+Declare Sub MakeImage
+Declare Sub ImgQeuryOpen(fName$)
+Declare Sub fimageUp()
+Declare Sub MakeComment
+Declare Sub MakeTask(TaskType$)
+Declare Sub queryOpenImageForRead(Cont)
+Declare Sub fimageDown()
+Declare Function GetCount(elementType As Integer) As Integer
+Declare Sub EqualAcces(curdoc,unid) ' пропишет в найденный образ в ридеры  екзекуторов из ткущей задачи, в которой нажали кнопку "отправить"
+Declare Sub BookmarkSend(db1 As NotesDatabase,curdoc,numbField,dateField,MailList,contr,InheritedSubject) ' отправка оффициозного письма
+Declare Sub ForwardMain ' переслать по почте
+
+'++LotusScript Development Environment:2:5:(Declarations):0:10
+Dim rtnav As NotesRichTextNavigator
+'** ShellExecute will open a file using the registered file association on the computer.
+'** If it returns a value of greater than 32 then the call was successful; otherwise
+'** it should return one of the error codes below. The parameters are:
+'**		hwnd = an active window handle, or 0
+'**		operation = "edit", "explore", "find", "open", or "print"
+'**		fileName = a file or directory name
+'**		parameters = if fileName is an executable file, the command line parameters
+'**							to pass when launching the application, or "" if no parameters
+'**							are necessary
+'**		directory = the default directory to use, or "" if you don't care
+'**		displayType = one of the displayType constants listed below
+Declare Function ShellExecute Lib "shell32" Alias "ShellExecuteA" _
+(Byval hwnd As Long, Byval operation As String, Byval fileName As String, _
+Byval parameters As String, Byval directory As String, Byval displayType As Long) As Long
+
+'** FindExecutable will determine the executable file that is set up to open a particular
+'** file based on the file associations on this computer. If it returns a value of greater than
+'** 32 then the call was successful; otherwise it should return one of the error codes 
+'** below. The parameters are:
+'**		fileName = the full path to the file you are trying to find the association for
+'**		directory = the default directory to use, or "" if you don't care
+'**		retAssociation = the associated executable will be returned as this parameter,
+'**							with a maximum string length of 255 characters (you will want
+'**							to pass a String that's 256 characters long and trim the 
+'**							null-terminated result)
+Declare Function FindExecutable Lib "shell32" Alias "FindExecutableA" _
+(Byval fileName As String, Byval directory As String, Byval retAssociation As String) As Long
+
+'** constants for the displayType parameter
+Const SW_HIDE = 0
+Const SW_SHOWNORMAL = 1
+Const SW_NORMAL = 1
+Const SW_SHOWMINIMIZED = 2
+Const SW_SHOWMAXIMIZED = 3
+Const SW_MAXIMIZE = 3
+Const SW_SHOWNOACTIVATE = 4
+Const SW_SHOW = 5
+Const SW_MINIMIZE = 6
+Const SW_SHOWMINNOACTIVE = 7
+Const SW_SHOWNA = 8
+Const SW_RESTORE = 9
+Const SW_SHOWDEFAULT = 10
+Const SW_MAX = 10
+
+'** possible errors returned by ShellExecute
+Const ERROR_OUT_OF_MEMORY = 0		'The operating system is out of memory or resources.
+Const ERROR_FILE_NOT_FOUND = 2		'The specified file was not found. 
+Const ERROR_PATH_NOT_FOUND = 3	'The specified path was not found. 
+Const ERROR_BAD_FORMAT = 11			'The .exe file is invalid (non-Microsoft Win32® .exe or error in .exe image). 
+Const SE_ERR_FNF = 2							'The specified file was not found. 
+Const SE_ERR_PNF = 3						'The specified path was not found. 
+Const SE_ERR_ACCESSDENIED = 5		'The operating system denied access to the specified file. 
+Const SE_ERR_OOM = 8						'There was not enough memory to complete the operation. 
+Const SE_ERR_SHARE = 26					'A sharing violation occurred. 
+Const SE_ERR_ASSOCINCOMPLETE = 27	'The file name association is incomplete or invalid. 
+Const SE_ERR_DDETIMEOUT = 28			'The DDE transaction could not be completed because the request timed out. 
+Const SE_ERR_DDEFAIL = 29				'The DDE transaction failed. 
+Const SE_ERR_DDEBUSY = 30				'The Dynamic Data Exchange (DDE) transaction could not be completed because other DDE transactions were being processed. 
+Const SE_ERR_NOASSOC = 31				'There is no application associated with the given file name extension. This error will also be returned if you attempt to print a file that is not printable. 
+Const SE_ERR_DLLNOTFOUND = 32		'The specified dynamic-link library (DLL) was not found. 
+'=================
+Const STARTF_USESHOWWINDOW& = &H1
+Const NORMAL_PRIORITY_CLASS = &H20&
+Const INFINITE = -1&
+Type STARTUPINFO
+	cb As Long
+	lpReserved As String
+	lpDesktop As String
+	lpTitle As String
+	dwX As Long
+	dwY As Long
+	dwXSize As Long
+	dwYSize As Long
+	dwXCountChars As Long
+	dwYCountChars As Long
+	dwFillAttribute As Long
+	dwFlags As Long
+	wShowWindow As Integer
+	cbReserved2 As Integer
+	lpReserved2 As Long
+	hStdInput As Long
+	hStdOutput As Long
+	hStdError As Long
+End Type
+Type PROCESS_INFORMATION
+	hProcess As Long
+	hThread As Long
+	dwProcessID As Long
+	dwThreadID As Long
+End Type
+
+Declare Function WaitForSingleObject Lib "kernel32" (Byval _
+hHandle As Long, Byval dwMilliseconds As Long) As Long
+
+Declare Function CreateProcessA Lib "kernel32" (Byval _
+lpApplicationName As Long, Byval lpCommandLine As String, Byval _
+lpProcessAttributes As Long, Byval lpThreadAttributes As Long, _
+Byval bInheritHandles As Long, Byval dwCreationFlags As Long, _
+Byval lpEnvironment As Long, Byval lpCurrentDirectory As Long, _
+lpStartupInfo As STARTUPINFO, lpProcessInformation As _
+PROCESS_INFORMATION) As Long
+
+Declare Function CloseHandle Lib "kernel32" (Byval  hObject As Long) As Long
+'=================
+Const cMAX_PATH = 260
+Const ERROR_NOASSOC = 31
+'Const ERROR_FILE_NOT_FOUND = 2&
+'Const ERROR_PATH_NOT_FOUND = 3&
+'Const ERROR_BAD_FORMAT = 11&
+Const ERROR_OUT_OF_MEM = 0
+Declare Function apiFindExecutable Lib "shell32.dll" _
+Alias "FindExecutableA" _
+(Byval lpFile As String, _
+Byval lpDirectory As String, _
+Byval lpResult As String) _
+As Long
+'Dim colimage As NotesDocumentCollection
+
+'Dim uidoc As NotesUIDocument
+'
+'Dim view As NotesView
+'Dim rtitem As NotesRichTextItem
+'Dim tmp As Variant
+
+'++LotusScript Development Environment:2:2:SendToSignII:1:8
+Sub SendToSignII	
+	On Error GoTo ErrHnd
+	Dim ws As New NotesUIWorkspace
+	Dim db As NotesDatabase
+	Dim maildoc As NotesDocument
+	Dim rtitem As NotesRichTextItem
+	Dim dbOrd As NotesDatabase
+	Dim crdoc As NotesDocument
+	Dim session As New NotesSession
+	Dim user As String 
+	Dim nam  As NotesName 
+	Set nam= session.CreateName(session.UserName)
+	user=nam.Common
+	Set curdb = session.CurrentDatabase
+	Set crdoc=ws.CurrentDocument.document		
+	qwert$ = session.GetEnvironmentString("SP")
+If qwert$ = "Подписал" Then
+'	crdoc.Status = "На подготовке на подпись" 
+	crdoc.st = "( Отправлен  " +Now() + "  "+ user+ "  )"
+	crdoc.Date_Sendsign= Now()
+	crdoc.Date_Send = Now()
+	Set maildoc = New NotesDocument(curdb)
+	tmpSubject = "На регистрацию документ из БД Проекты ОРД:  " & crdoc.Info(0) + "  ( №п/п - " + crdoc.InternalNumber(0) + " )"
+	maildoc.Subject = tmpSubject
+	maildoc.InheritedSubject = crdoc.Info(0)
+			'maildoc.InheritedDbTitle = DbTitle
+	maildoc.FlowStatus = tmpFlowStatus	
+	maildoc.Form = "Bookmark"	
+'maildoc.InheritedDbTitle = crdoc.DbTitle(0)		
+		tmpFlowStatus="Пожалуйста, найдите время зарегистрировать данный документ"		
+	zug$ = ""
+	If LCase(InStr(curdb.Filename , "_") ) > 0 Then
+	 	zug$ = "_" + StrLeft(StrRight(curdb.Filename,"_"),".")	
+	End If
+	Set dbOrd = session.GetDatabase( curdb.Server, StrLeftBack(curdb.FilePath,"\")+"\ORD" + zug$ + ".NSF" )			
+'	Set dbOrd = session.GetDatabase( curdb.Server, StrLeftBack(curdb.FilePath,"\")+"\ORD.NSF" )	
+'	Set db = session.GetDatabase( curdb.Server, Strleftback(curdb.FilePath,"\")+"\ORD.NSF" )	
+	Dim qdoc As NotesDocument
+	Dim v As NotesView
+
+	Set qdoc = dbOrd.CreateDocument
+	crdoc.DZak = Now() '(_/_)
+	crdoc.SZak = session.UserName '(_/_)
+	Call crdoc.CopyAllItems(qdoc)
+	Set item = qdoc.GetFirstItem( "UniqueID_1" )
+	If Not item Is Nothing Then	Call item.Remove
+	qdoc.ReaderNames = crdoc.AuthorNames
+	qdoc.Readers = crdoc.Editors
+	Call qdoc.ReplaceItemValue("AuthorNames",crdoc.ToNotesAddress(0))
+	Call qdoc.ReplaceItemValue("Editors",crdoc.ToInfo(0))
+		
+	qdoc.SP = "Подписал" 
+	qdoc.Status="На подготовке"
+	qdoc.Form = "ORD"
+	qdoc.Date_create= Now()
+	qdoc.InternalNumber=""
+	qdoc.st = "(   " +Now() + "  "+ user+ "  )"
+	qdoc.CreatorAddr = session.UserName
+		If crdoc.Hasitem("qGroup") Then
+	If crdoc.qGroup(0) <> "" Then
+			qdoc.qGroup = crdoc.qGroup
+		End If
+	End If 
+	Call qdoc.ReplaceItemValue("InternalNumber","")
+	Call qdoc.ReplaceItemValue("Numdocp",crdoc.InternalNumber(0))
+	qdoc.ProjectUnid = crdoc.UniversalID
+'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%		
+	Call DefaultExecutor(qdoc, crdoc.ToInfo(0))'EditAccess.Employees(0))
+'%%%%%%%%%%%%отправим вложеня в базу РД%%%%%%%%%%%%%%%%%%%%%%	
+	Set view = curdb.GetView("(vimage)")
+	Set colimage = view.GetAllDocumentsByKey(crdoc.UniversalID )
+	Set pardoc = colimage.GetFirstDocument
+	While Not pardoc Is Nothing
+		Set newimg = pardoc.copytodatabase(dbOrd)
+		newimg.IMAGEDOCUNID = qdoc.UniversalID
+		newimg.project = "1"
+		Call newimg.save(True,True)
+		Set pardoc = colimage.GetNextDocument(pardoc)
+	Wend
+'(_/_)(_/_)(_/_)(_/_)	
+	Call crdoc.Save(True,True)
+	Set rtitem = New NotesRichTextItem(qdoc, "pLink")
+	Call  rtitem.AppendDocLink(crdoc, "Ссылка на документ: " ) '
+	If qdoc.Save(True,True) Then 
+		MsgBox "Документ подписан и отправлен в канцелярию на регистрацию " ' + res
+'--------------- письмо в канцелярию ---------------
+	If InStr(LCase(session.CurrentDatabase.Filepath ),"sed_voek") > 0 Then
+		MailList =  FromMain(curdb,"ListSend") ' 
+	Else
+		MailList = "Block_Office_remrd_" + FromMain(curdb,"PostFix") ' res
+	End If
+		
+		Call maildoc.AppendItemValue("SendTo", MailList )
+		Set rtitem = New NotesRichTextItem(maildoc, "Body")
+		
+		DbTitle = dbOrd.Title
+		
+		maildoc.InheritedDbTitle = DbTitle
+		
+		Call  rtitem.AppendDocLink(qdoc, "Ссылка на документ: " ) '		Call  rtitem.AppendDocLink(crdoc, "Ссылка на документ: " )
+		
+		Call maildoc.Send (False)
+		
+'----------------соберем листы согласования и создадим их копии в орд базе, прикрепим их к qdoc
+		Dim col As NotesDocumentCollection
+		Dim wiza As NotesDocument
+		Dim wizard As NotesDocument
+		Set col = crdoc.Responses
+		Set wiza = col.GetFirstDocument
+		While Not wiza Is Nothing
+			If wiza.Dorm(0) = "" Then
+				Set wizard = dbOrd.CreateDocument
+				Call wiza.CopyAllItems(wizard)
+				Call wizard.MakeResponse(qdoc)
+				Call wizard.save(True,True)
+			End If
+			Set wiza = col.GetNextDocument(wiza) 
+		Wend
+	End If '%%%%%%%%%%%% If qdoc.Save(True,True) Then
+ElseIf qwert$ = "Не подписал" Then
+For jj = 0 To UBound(crdoc.ToInfo)
+		ReDim Preserve res(0 To jj)
+		res(jj) = StrToken(crdoc.ToInfo(jj),"!",4)
+	Next
+		Set tmpdoc = curdb.createdocument
+		If ws.DialogBox("WorkSigner2",True,True, False,False,False,False, "Введите комментарий",tmpdoc,False,False,False) Then
+			ws.CurrentDocument.Document.Status = "Не подписан"	
+			ws.CurrentDocument.Document.st = "(   " +Now() + "  "+ user+ "  )"
+			ws.CurrentDocument.Document.Comment_W = tmpdoc.Comment_W	
+		Else
+			Call session.SetEnvironmentVar("SP","")
+			Exit Sub						
+		End If
+		Call SendNotice1 (crdoc, "Документ НЕ подписан: " + crdoc.Info(0), "", "", "Документ НЕ подписан: " + crdoc.Info(0) + "  ( №п/п - " + crdoc.InternalNumber(0)+ " )"+ "  " ,  res)
+	End If	
+	ws.CurrentDocument.Document.SP = qwert$
+	If ws.CurrentDocument.EditMode Then 
+		ws.CurrentDocument.Refresh
+		ws.CurrentDocument.Save
+	Else
+		Call ws.CurrentDocument.Document.Save(True, True)
+	End If	
+	Call session.SetEnvironmentVar("SP","")
+	Set tmp = crdoc
+	ws.CurrentDocument.Close
+	Call ws.EditDocument(False,tmp)
+	Call ws.ViewRefresh
+	Exit Sub
+ErrHnd:  
+	Call errh(" отправить на подготовку на подписьII  ")
+End Sub
+
+'++LotusScript Development Environment:2:1:fOpenDocAndWait:1:8
+Function fOpenDocAndWait( pstrDocPath As String, plngWindowStyle As Long ) As Long
+	
+	On Error GoTo Err_Handler
+	
+	Dim strFileName As String
+	Dim strFolder As String
+	Dim strExePath As String
+	Dim strCommandLine As String
+	
+'Const Q As String = """"
+	
+	strFileName = Dir(pstrDocPath)
+	If Len(strFileName) = 0 Then
+		fOpenDocAndWait = 53 ' File not found
+		Exit Function
+	End If
+	
+	strFolder = Left$(pstrDocPath, Len(pstrDocPath) - Len(strFileName))
+	strExePath = Trim(Replace(fFindEXE(strFileName, strFolder), Chr(0), " "))
+	If Len(strExePath) = 0 Then
+		fOpenDocAndWait = 17 ' Can't perform requested operation
+	ElseIf strExePath Like "Error:*" Then
+		fOpenDocAndWait = 17 ' Can't perform requested operation
+	Else
+		If InStr(LCase(strExePath),"winword") > 0 Then strExePath = strExePath + " /w "
+		strCommandLine = Q & strExePath & Q & " " & Q & pstrDocPath & Q
+		ShellWait strCommandLine, plngWindowStyle
+		fOpenDocAndWait = 0
+	End If
+	
+Exit_Point:
+	Exit Function
+Err_Handler:
+'fOpenDocAndWait = Err.Number
+	Resume Exit_Point
+	
+End Function
+
+'++LotusScript Development Environment:2:2:GetImage:1:8
+Sub GetImage(curdoc, imagedocUnid,ImageAll As Boolean)
+	On Error Goto ErrHnd
+	Dim ws As New notesuiworkspace
+	Set uidoc = ws.CurrentDocument
+	Dim imagedoc As NotesDocument
+	Dim view As NotesView
+	Dim pardoc As NotesDocument
+	Dim curdb As notesdatabase
+	Dim sess As New notessession
+	Set curdb = sess.CurrentDatabase
+'	Msgbox curdb.FilePath + " база curdoc: " + curdoc.ParentDatabase.FilePath
+	Set linkDb = sess.GetDatabase(curdb.Server,Strleft(curdb.FilePath,"\") + "\TASK.NSF" )
+	Set view = curdb.GetView("(vimage)")
+	If curdoc.IsNewNote Then
+		If Messagebox ( "Для вложения необходимо сохранить текущий документ! Сохранить?"  , 4 + 32 +  0  , "Сохранить?" ) = 6 Then
+			Call curdoc.Save(True,True)
+		Else
+			Msgbox "продолжение не возможно..."
+			Exit Sub
+		End If
+	End If
+'%%%%%%%	
+'	Msgbox Strtoken(curdoc.PARDOCUNIDIMAGE(0),"%",2)
+'	Set colimage = view.GetAllDocumentsByKey(Strtoken(curdoc.PARDOCUNIDIMAGE(0),"%",2) ) 'imagedocUnid)
+	Set colimage = view.GetAllDocumentsByKey(curdoc.PARDOCUNID(0) )
+'	If colimage.Count = 0 Then Msgbox "не найден основной документ" : Exit Sub
+'	If colimage.Count = 0 Then Msgbox "нет вложений в основном документе" : Exit Sub
+'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	
+	j = 0
+	Set pardoc = colimage.GetFirstDocument
+	While Not pardoc Is Nothing
+		Redim Preserve attach(0 To  j)	
+		attach(j) = pardoc.InView(0) ' rtitem.EmbeddedObjects(0).Source
+		j = j + 1			
+		Set pardoc = colimage.GetNextDocument(pardoc)
+	Wend
+'%%%%%%%%%%%%%%%%%%%%
+	If ImageAll Then
+		res = attach
+	Else
+		res = ws.Prompt( PROMPT_OKCANCELLISTMULT, "Вложения", "Выберите вложения для добавления", "", attach )
+		If Isempty(res) Then Exit Sub ' Msgbox "ничего не выбрано..." :
+	End If
+'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%		
+	Set pardoc = colimage.GetFirstDocument
+	While Not pardoc Is Nothing
+		For jj = 0 To Ubound(res)
+'			Msgbox "<" + res(jj) + "> = <" + pardoc.InView(0) + ">"  
+			If res(jj) = pardoc.InView(0) Then 
+'				Set imagedoc = pardoc.CopyToDatabase(curdb)
+				Set imagedoc = linkDb.CreateDocument
+'				Msgbox imagedoc.ParentDatabase.FilePath
+				Call pardoc.CopyAllItems( imagedoc, True )
+'				imagedoc.Form = "fimage"
+				imagedoc.imagedocUnid = curdoc.UniversalID
+				imagedoc.imagedocDbRepl = curdoc.ParentDatabase.ReplicaID
+				imagedoc.AttachType = curdoc.Form(0)
+'%%%%%%%ДОСТУП
+				Set it1 = imagedoc.ReplaceItemValue("AuthorNames_Rep",FromMain(curdb,"servgroup"))
+				Call it1.AppendToTextList("Servers_PKC")
+				Call it1.AppendToTextList("Cluster_Strong")
+				it1.IsAuthors = True
+				imagedoc.DefaultReaders = "[CanReadAllDocs]"
+				imagedoc.DefaultEditors = "[CanEditAllDocs]"
+				Set item =  imagedoc.GetFirstItem( "DefaultReaders" )
+				item.IsReaders = True
+				Set item =  imagedoc.GetFirstItem( "DefaultEditors" )
+				item.IsAuthors = True
+'-------------------------------------------------	
+'				Set it1 = imagedoc.ReplaceItemValue("AuthorNames",curdoc.AuthorNames)
+				Set it1 = imagedoc.ReplaceItemValue("AuthorNames",sess.UserName)
+'				Msgbox 				imagedoc.AuthorNames(0)
+'				Call it1.AppendToTextList(sess.UserName)
+				it1.IsAuthors = True	
+				Set it1 = imagedoc.ReplaceItemValue("Editors",curdoc.Editors)
+				Set it1 = imagedoc.ReplaceItemValue("ReaderNames",curdoc.ReaderNames)
+				it1.IsReaders = True	
+				Set it1 = imagedoc.ReplaceItemValue("Readers",curdoc.Readers)
+'%%%%%%%					
+				imagedoc.InternalNumber = curdoc.InternalNumber(0)
+				Call imagedoc.Save(True,True) 'Then Msgbox "вложение не может быть приложено!!" : Exit Sub
+			End If ' 	If res(jj) = pardoc.InView
+		Next
+		Set pardoc = colimage.GetNextDocument(pardoc)
+	Wend
+'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	Call ws.ViewRefresh	
+	Exit Sub
+ErrHnd:
+	Call errh(" Sub GetImage ")
+End Sub
+
+'++LotusScript Development Environment:2:2:queryOpenImage:1:8
+Sub queryOpenImage(Cont)
+	On Error GoTo ErrHnd	
+	
+	Dim ws As New NotesUIWorkspace, dc As NotesDocumentCollection, doc As NotesDocument, imagedoc As NotesDocument,  pardoc As NotesDocument
+	Dim curdb As NotesDatabase, ss As New NotesSession, curdoc As NotesDocument, TempDir$, lastdir$, patch$, qwert As Variant, formname$
+	Dim patch2$, result&, exe$, res As Variant, patchOLD$, newpatch, fileName$, res1 As Variant, res2 As Variant
+	Set dc = ws.CurrentView.Documents
+	If dc.Count <> 1 Then MsgBox "Выбирите один документ!" : Exit Sub
+	Set doc = dc.GetFirstDocument 
+	If InStr(ss.Platform,"Windows") = 0 Then
+		doc.From = "fimageNONEwind"
+		Call ws.Editdocument(, doc, , , , )  
+		Cont = False
+		Exit Sub
+	Else
+'(_/_)	'		
+	Dim pb As New LNProgressbar( True )
+	Call pb.SetProgressRange ( 4 )
+	Call pb.SetProgressPos( 1 )
+	Call pb.SetText( "Подождите... Данные загружаются с сервера!", "" )
+'(_/_)	'	
+	End If
+	If doc.Form(0) = "link" Or doc.Form(0) = "comment" Then Cont = True : Exit Sub
+	If doc.Form(0) <> "fimage" Then	Cont = True : Exit Sub
+	Cont = False	
+	Dim rtitem As NotesRichTextItem	
+	Dim object As NotesEmbeddedObject
+	Set rtitem = doc.GetFirstItem("Body" )	
+	If Not doc.HasItem("Body") Then Set rtitem = doc.GetFirstItem("Document" )	
+	TempDir$ = Environ("Temp")			
+	lastdir$ = ss.GetEnvironmentString("lastdir")
+	patch$ = TempDir$+"\" + rtitem.EmbeddedObjects(0).Source
+'	Call pb.SetProgressPos( 4 )
+'	Delete pb 	'(_/_)	'		
+	If InStr(ss.Platform,"Windows") = 0 Then ' то черз launch first ole и будут лишние клики, 
+' то же самое, если не найдено зарегистрированное приложение!!!!!!!!!!
+otherteam:
+		Call ws.DialogBox( "fimageNONEwind" , True , True , False , False , False , False,  "Работа с вложением " + StrRight(patch$,"\") , doc , False , False , False ) 
+		Exit Sub
+	End If
+nochmal:
+	Dim tmp As NotesDocument
+	Set tmp = ss.CurrentDatabase.CreateDocument 
+	tmp.NewFName = rtitem.EmbeddedObjects(0).Source
+	tmp.type = "Открыть"
+	res1 = Evaluate({@contains(DefaultEditors;"[CanEditAllDocs]")},doc)
+	res2 = Evaluate({@contains(@UserRoles;"[CanEditAllDocs]")})
+	If (IsNull( ArrayGetIndex(doc.AuthorNames, ss.UserName) ) And Not (res2(0)=1) )  Then ' res1(0)=1 And Or doc.SZak(0) <> "" 2015/02 
+		formname$ = "dlgfileRead" 
+	Else
+		formname$ = "dlgfile"
+	End If
+	Print ws.Currentdocument.Document.FOrm(0)
+	Print formname$ + " " + CStr(res1(0)) + " " + CStr( res2(0))
+	If ws.DialogBox(formname$, True , True , False , False , False , False,  "Работа с вложением " + StrRight(patch$,"\") , tmp, False , False , False ) Then
+		Call rtitem.EmbeddedObjects(0).ExtractFile( patch$ )
+		Select Case tmp.type(0)
+		Case "Удалить": 
+			If tmp.del(0) = "Подтвердите удаление" Then
+				Call doc.RemoveItem("Body")		 ' пустой образ пропадет из view и ночной агент его потом удалит
+				Call doc.Save(True,True)
+				Kill patch$ 
+			End If
+		Case "Переименовать": 
+			If tmp.NewFName(0) = "" Then MsgBox "Введите новое имя файла!" : GoTo nochmal
+			Kill patch$ 
+			patch2$ = TempDir$+"\" +tmp.NewFName(0)			
+			Call rtitem.EmbeddedObjects(0).ExtractFile( patch2$ )
+			Call doc.RemoveItem("Body")		
+			doc.InView = tmp.NewFName(0)
+			Set rtitem = New NotesRichTextItem(doc,"Body")
+			Set object = rtitem.EmbedObject( EMBED_ATTACHMENT, "", patch2$) ' TempDir$+"\" & typ$+o.Source)		
+			rtitem.Update		
+			Call doc.Save(True,True)
+			Kill patch2$ 				
+		Case "Открыть":
+			result& = ShellExecute(0, "open", patch$, "", "", SW_SHOW)
+			If result& = 31 Then
+				Call  fOpenDocAndWait(patch$,0)
+			Else
+				exe$ = Space$(256)
+				result& = FindExecutable(fileName$, "", exe$)
+				exe$ = Left$(exe$, InStr(exe$, Chr(0)) - 1)
+			End If
+		Case "Сохранить на диск":			
+			newpatch = ws.SaveFileDialog( False , "Укажите путь для сохранения на диск" , ,StrRightBack(rtitem.EmbeddedObjects(0).Source,".")  ,rtitem.EmbeddedObjects(0).Source  )
+			If IsEmpty(newpatch) Then Exit Sub ' Msgbox "ничего не выбрано..." :
+'			If newpatch(0) = "" Then Msgbox "Введите имя файла!" : Goto nochmal
+			Call rtitem.EmbeddedObjects(0).ExtractFile( newpatch(0) )
+			res = Evaluate(|@FileDir("|+ Replace(newpatch(0) ,"\","\\") + |")|,curdoc)	
+			lastdir$ = res(0)
+			Call ss.SetEnvironmentVar("lastdir",lastdir$)
+		Case "Изменить":
+'			patchOLD$ = patch$
+			patchOLD$ = TempDir$+"\" + rtitem.EmbeddedObjects(0).Source
+			patch$ = TempDir$+"\" + Replace(Replace(Replace(CStr(Now())," ","_"),".",""),":","_") + "." + StrRightBack(rtitem.EmbeddedObjects(0).Source,".") ' TempDir$+"\" & o.Source
+			FileCopy patchOLD$  , patch$ ' переименование, потому что со спец. символами проблема
+			Select Case fOpenDocAndWait(patch$,0)
+			Case 17 : GoTo otherteam ' Msgbox "Can't perform requested operation"
+			Case 53 : MsgBox "File not found"
+			Case 0 :
+'				On Error 70 Resume Next
+'				On Error 75 Resume Next
+				Kill patchOLD$ 	
+				FileCopy  patch$, patchOLD$
+				Call doc.RemoveItem("Body")		
+				Set rtitem = New NotesRichTextItem(doc,"Body")
+				Set object = rtitem.EmbedObject( EMBED_ATTACHMENT, "", patchOLD$) ' TempDir$+"\" & typ$+o.Source)		
+				rtitem.Update		
+				Call doc.Save(True,True)
+				Kill patch$ 		
+				Kill patchOLD$ 	
+				MsgBox "Вложение изменено"
+			End Select
+			
+		End Select
+		Call ws.ViewRefresh
+	End If ' первый диалогбокс
+	Cont = False
+	Exit Sub
+ErrHnd:  
+'	If Erl = 101 Or Erl = 102 Or Erl = 51 Or Erl = 63 Or Erl = 95 Or Erl = 81 Or Erl = 89 Then Msgbox 	Error$ + Chr(10) + Chr(13) + "Попробуйте закрыть все приложения или перезагрузить компьютер."+ Chr(10) + Chr(13) + "Если ошибка повториться обратитесь в тех. поддежку" : Exit Sub
+'   Resume Next  : Exit Sub
+	MsgBox 	CStr(Err) + " " + Error$ + " строка: " + CStr(Erl)
+	Call errh(" queryOpenImage  " )
+End Sub
+
+'++LotusScript Development Environment:2:2:getpar:1:8
+Sub getpar(tmp,curdb, typ$,st$,qq$)
+	On Error Goto ErrHnd
+	On Error 4000 Resume Next
+	Dim ss As New NotesSession
+	Dim tmps As NotesDocument
+	Dim tmpcol As NotesDocumentCollection
+	Set tmps = curdb.getdocumentbyunid(tmp.ParentDocumentUNID) ' РОДИТЕЛЬ
+	If tmps Is Nothing Then Exit Sub
+	Set tmpcol = tmps.Responses
+	If tmpcol Is Nothing Then  Exit Sub
+	If tmpcol.Count <> 1 Then  Exit Sub ' правило работает только для ЕДИНСТВЕННОГО ответа
+	curcontr = Evaluate({@Unique( ControllerAddr:CreatorAddr)},tmp)	
+	contr = Evaluate({@IsMember("} + curcontr(0) + {";ControllerAddr:CreatorAddr)},tmps)
+	If contr(0) <> 1 Then Exit Sub
+	
+	If tmps.IDStatus(0) = "4" Or tmps.IDStatus(0) = "5" Then Exit Sub
+	
+	tmps.Control = ""
+	
+	tmps.IDstatus = st$
+	tmps.Status = typ$
+	Call tmps.Save(True,True)
+	
+	If tmps.HasItem("$REF") Then ' если текущ документ является единственным ответом, то у родителя проставим такой же статус		
+		Call getpar(tmps,curdb, typ$,st$,qq$)
+	End If
+	
+	Exit Sub
+ErrHnd:
+	Call errh(" -> sub getpar ")
+End Sub
+
+'++LotusScript Development Environment:2:1:MakeImageDoc:1:8
+Function MakeImageDoc(curdoc, curdb) As NotesDocument
+	On Error Goto ErrHnd
+	
+	Set imagedoc = curdb.CreateDocument 
+'%%%%%%%ДОСТУП
+	Set it1 = imagedoc.ReplaceItemValue("AuthorNames_Rep",FromMain(curdb,"servgroup"))
+	Call it1.AppendToTextList("Servers_PKC")
+	Call it1.AppendToTextList("Cluster_Strong")
+	it1.IsAuthors = True
+	imagedoc.DefaultReaders = "[CanReadAllDocs]"
+	imagedoc.DefaultEditors = "[CanEditAllDocs]"
+	Set item =  imagedoc.GetFirstItem( "DefaultReaders" )
+	item.IsReaders = True
+	Set item =  imagedoc.GetFirstItem( "DefaultEditors" )
+	item.IsAuthors = True
+	Set it1 = imagedoc.ReplaceItemValue("AuthorNames",curdoc.AuthorNames)
+	it1.IsAuthors = True	
+	Set it1 = imagedoc.ReplaceItemValue("Editors",curdoc.Editors)
+	Set it1 = imagedoc.ReplaceItemValue("ReaderNames",curdoc.ReaderNames)
+	it1.IsReaders = True	
+	Set it1 = imagedoc.ReplaceItemValue("Readers",curdoc.Readers)
+'%%%%%%%	
+	imagedoc.imagedocUnid = curdoc.UniversalID
+	imagedoc.imagedocDbRepl = curdoc.ParentDatabase.ReplicaID
+	imagedoc.AttachType = curdoc.Form(0)
+'	imagedoc.Form = "tmp" ' "link" - ?
+'	If Not imagedoc.Save(True,True) Then Msgbox "вложение не может быть приложено!!" : Exit Function
+	Set MakeImageDoc = imagedoc
+	
+	Exit Function
+ErrHnd:
+	Call errh(" Function MakeImageDoc ")
+End Function
+
+'++LotusScript Development Environment:2:2:MakeFromBuff:1:8
+Sub MakeFromBuff
+	On Error Goto ErrHnd
+	On Error 4407 Goto ex
+	Dim ws As New notesuiworkspace
+	Dim sess As New notessession
+	Dim imagedoc As NotesDocument
+	Dim tmpdoc As NotesDocument
+	Dim curdoc As notesdocument
+	Dim curdb As notesdatabase
+	Dim uidoc As NotesUIDocument
+	Set uidoc = ws.CurrentDocument
+	
+	Set curdb = sess.CurrentDatabase
+	Set curdoc = ws.CurrentDocument.Document ' curdb.GetDocumentByUNID(unid$)
+	If curdoc.IsNewNote Then
+		If Messagebox ( "Для вложения необходимо сохранить текущий документ! Сохранить?"  , 4 + 32 + 0 + 0  , "Сохранить!" ) = 6 Then
+			Call curdoc.Save(True,True)
+		Else
+			Msgbox "продолжение не возможно..."
+			Exit Sub
+		End If
+	End If
+'(_/_)	
+'	Set tmpdoc = curdb.CreateDocument 
+'	tmpdoc.Form = "tmp"
+	Dim rtitem As NotesRichTextItem
+'	Set uidoc = ws.EditDocument(True, tmpdoc)
+	Call ws.CurrentDocument.GotoField("ppp")
+'	Call uidoc.GotoField( "Body" )
+'	Set rtitem = New NotesRichTextItem(curdoc, "BodyTemp" )
+'	Call uidoc.FieldSetText("ppp","Пожалуйста подождите..."&Chr(10)&Chr(13))
+'(_/_)	'		
+	Dim pb As New LNProgressbar( True )
+	Call pb.SetProgressRange ( 5 )	
+	Call pb.SetProgressPos( 1 )
+	Call pb.SetText( "Подождите... Данные загружаются с сервера!", "" )
+'(_/_)	'		
+	Call uidoc.Paste
+	Call pb.SetProgressPos( 2 )'(_/_)	'	
+	Call uidoc.Save
+	Call pb.SetProgressPos( 3 )'(_/_)	'	
+	Set rtitem =  ws.CurrentDocument.Document.GetFirstItem("ppp")
+	qInView$ = rtitem.GetUnformattedText ' Replace(Replace(uidoc.Document.Body,Chr(13),""),Chr(10),"")
+'	Msgbox qInView$
+'	Call uidoc.Close
+'''''''''------------------'''''''''''''''''
+'(_/_)	'	uidoc.Document.InView = "Просмотр содержания по двойному клику" '			Msgbox "не понятно что.... выходим..."
+	Dim rtitem3 As NotesRichTextItem	
+	Dim object As NotesEmbeddedObject
+	Set rtnav = rtitem.CreateNavigator
+	Set  imagedoc = MakeImageDoc(curdoc, curdb) 
+	imagedoc.Form = "comment"
+	Dim col As NotesDocumentCollection
+	Call ws.Viewrefreshbydbid(curdb.replicaid, "(vimage)")
+	Set col = curdb.Getview("(vimage)").Getalldocumentsbykey(curdoc.UniversalID, True)
+	imagedoc.numb = col.count + 1
+	Call imagedoc.CopyItem(rtitem, "Body")
+	If (GetCount(RTELEM_TYPE_SECTION) > 0 Or GetCount(RTELEM_TYPE_TABLE) > 0_
+	Or GetCount(RTELEM_TYPE_TABLECELL) > 0 Or GetCount(RTELEM_TYPE_TEXTPARAGRAPH) > 0_
+	Or GetCount(RTELEM_TYPE_TEXTRUN) ) Then
+		imagedoc.InView = qInView$
+	Elseif GetCount(RTELEM_TYPE_FILEATTACHMENT) = 0 And GetCount(RTELEM_TYPE_DOCLINK) = 0 Then
+		imagedoc.InView = "Просмотр содержания по двойному клику"
+	End If
+	If GetCount(RTELEM_TYPE_DOCLINK) > 0 Then 	imagedoc.Form = "link" :  imagedoc.InView =  rtnav.GetElement.DisplayComment
+	If imagedoc.InView(0) <> "" Then Call imagedoc.save(True,True)
+	Call pb.SetProgressPos( 4 )'(_/_)	'	
+	If GetCount(RTELEM_TYPE_DOCLINK) > 0 Or GetCount(RTELEM_TYPE_FILEATTACHMENT) > 0 Then		
+		If  rtnav.FindFirstElement(RTELEM_TYPE_FILEATTACHMENT) Then
+			Do
+				Set  imagedoc = MakeImageDoc(curdoc, curdb)
+				imagedoc.Form = "fimage"
+				Set rtitem3 = New NotesRichTextItem( imagedoc, "Body" )
+				Call rtnav.GetElement().ExtractFile(Environ("Temp")+"\" & rtnav.GetElement().Source )
+				Set object = rtitem3.EmbedObject( EMBED_ATTACHMENT, "", Environ("Temp")+"\" & rtnav.GetElement().Source )
+				Kill Environ("Temp")+"\" & rtnav.GetElement().Source
+				imagedoc.InView = rtnav.GetElement().name
+				If imagedoc.InView(0) <> "" Then Call imagedoc.save(True,True)
+			Loop While rtnav.FindNextElement(RTELEM_TYPE_DOCLINK) Or rtnav.FindNextElement(RTELEM_TYPE_FILEATTACHMENT)
+			
+		End If
+	End If		
+	
+'	Call uidoc.Document.ReplaceItemValue("ppp","") ' .RemoveItem("ppp")
+'	Call curdoc.RemoveItem("ppp")
+'	Call uidoc.Refresh
+'	Call uidoc.RefreshHideFormulas
+	Call uidoc.FieldClear("ppp")
+	Call ws.ViewRefresh	
+	Call pb.SetProgressPos( 5 )'(_/_)	'	
+	Delete pb 	'(_/_)	'		
+'	Msgbox "Содержимое буфера добавлено"			
+	Exit Sub
+ex:
+	Call uidoc.FieldClear("ppp")
+	Delete pb 	'(_/_)	'		
+	Msgbox "Вставка не возможна..."
+	Exit Sub
+ErrHnd:
+	Call uidoc.FieldClear("ppp")
+	Delete pb 	'(_/_)	'	
+	Call errh(" click Добавить из буффера ")
+End Sub
+
+'++LotusScript Development Environment:2:1:GetZam:1:8
+Function GetZam(fname$, nam$,dostup,qadd) As Variant
+	On Error Goto ErrHnd
+	Dim dbt As NotesDatabase
+	Dim view As NotesView
+	Dim doczam As NotesDocument
+	Dim SN2 As NotesName
+	Dim qarr(0 To 1) As String
+	qarr(0) = ""
+	qarr(1) = ""
+	GetZam = qarr
+	If nam$ = "" Then Exit Function
+'	Redim Preserve dostup( 0 To Ubound(dostup) + 1 )	в доступ идут все, независимо от того, кто идет в поле подписанта
+	Dim ss As New NotesSession
+	Set dbt = New NotesDatabase( ss.CurrentDatabase.Server, Strleftback(ss.CurrentDatabase.FilePath,"\") + "\firm.nsf")
+	If Not dbt.IsOpen Then Msgbox "База данных ""Фирмы"" не найдена.", 48, "Ошибка" : Exit Function
+	
+	Set view = dbt.getview("(byNotesAddressCA)") 
+	
+	Set SN2 =  New notesname(nam$) ' ищем для него зама
+	Set doczam = view.GetDocumentByKey(SN2.Canonical)
+	
+	If Not doczam Is Nothing Then
+'		Set SN2 =  New notesname( doczam.GetItemValue("AssistantAddress")(0) )
+		qarr(0) = SN2.Canonical
+		qarr(1) = doczam.Caller(0) + "!" + doczam.Firm(0) + "!" + doczam.CallerTitle(0) + "!" + doczam.NotesAddress(0) + "!0!"+ Replace(Replace(Replace(Replace(doczam.Depatr(0),","," "),";"," "),Chr(10)," "),Chr(13)," ") + "!-!-!-!-" 
+		Call dostup.AddEmployeeLine( qarr(1) , False ) ' в д оступ всегда пишем всех
+'		qwert = GetZam(fname$,doczam.AssistantAddress(0) ,dostup)
+'		If qwert(0) <> "" Then ' если у зама есть зам
+		If doczam.AssistantAddress(0) <> "" Then
+			If qadd = 3 Then qAddStr = Chr(10) + |ОТМЕНА - Добавить в поле "| + fname$ + |" его замещающего: | + doczam.Assistant(0) + " " Else qAddStr = ""
+			mes = Messagebox ( fname$ + " " + doczam.Caller(0)  + " в данный момент отсутствует на работе!"+_
+			Chr(10) + |ДА - Заменить его в поле "| + fname$ + |" его замещающим: |  + doczam.Assistant(0) + " " +  _ 
+			qAddStr +  _ 
+			Chr(10) + |НЕТ  - Оставить в поле "| + fname$ + |" сотрудника: | + doczam.Caller(0)  ,_
+			qadd + 32 + 512 + 0  , "ВНИМАНИЕ!" ) 
+			
+			If mes = 6 Or mes = 2 Then 	qwert = GetZam(fname$,doczam.AssistantAddress(0) ,dostup,qadd)
+			If mes = 6 Then
+				GetZam = qwert
+				Exit Function
+			Elseif mes = 2 Then
+				qarr(0) = qarr(0) + ", " + qwert(0)
+				qarr(1) = qarr(1) + ", " + qwert(1)			
+			Else				
+			End If
+		End If
+		
+		GetZam = qarr
+	End If
+	Exit Function
+ErrHnd:  
+	Call errh(" Function GetZam ")
+End Function
+
+'++LotusScript Development Environment:2:1:fFindEXE:3:8
+Function fFindEXE(stFile As String, _
+stDir As String) _
+As String
+'Usage Example:
+'   ?fFindEXE("test.xls","c:\temp")
+'
+	Dim lpResult As String
+	Dim lngRet As Long
+	
+	lpResult = Space(cMAX_PATH)
+	lngRet = apiFindExecutable(stFile, stDir, lpResult)
+	
+	If lngRet > 32 Then
+		fFindEXE = lpResult
+	Else
+		Select Case lngRet
+			
+		Case ERROR_NOASSOC: fFindEXE = "Error: No Association"
+		Case ERROR_FILE_NOT_FOUND: fFindEXE = "Error: File Not Found"
+		Case ERROR_PATH_NOT_FOUND: fFindEXE = "Error: Path Not Found"
+		Case ERROR_BAD_FORMAT:  fFindEXE = "Error: Bad File Format"
+		Case ERROR_OUT_OF_MEM:  fFindEXE = "Error: Out of Memory"
+		End Select
+	End If
+End Function
+
+'++LotusScript Development Environment:2:1:checkAssistZam:1:8
+Function checkAssistZam(usern$) As String
+	On Error Goto ErrHnd
+	Dim firmdoc As NotesDocument
+	Dim tdoc As NotesDocument
+	Dim tmps As NotesDocument
+	Dim ws As New NotesUIWorkspace
+	Dim ss As New NotesSession
+	Dim curdb As notesdatabase
+	Set tdoc = ss.CurrentDatabase.CreateDocument
+	Set DocAccess = New DocumentAccess2( tdoc, "einfo", "einfoAddr")
+	
+	If curdb Is Nothing Then Set curdb = ss.CurrentDatabase
+	dbFirm$ = Strleft(curdb.FilePath,"\")+ "\FIRM.NSF"	
+	If  ws.CurrentDocument.document.HasItem("IdDoc") Then
+		For qq = 0 To Ubound(ws.CurrentDocument.document.IdDoc)
+			If Strtoken(ws.CurrentDocument.document.IdDoc(qq),"!",1) = usern$ Then dbFirm$ =	Strtoken( ws.CurrentDocument.document.IdDoc(qq),"!",2) : Exit For
+		Next
+	End If
+	Set dbt = New NotesDatabase( curdb.Server, dbFirm$  )
+	If Not dbt.IsOpen Then Call errh(" Function checkAssist:  База данных Фирмы не найдена.") : Exit Function
+	Set view = dbt.getview("(byNotesAddress)")
+	Set tmps = view.GetDocumentByKey(usern$ ,True)
+	If Not tmps Is Nothing Then
+		If tmps.AssistantAddress(0) <> "" Then ' зам на отпуск
+			Set firmdoc = view.GetDocumentByKey(tmps.AssistantAddress(0),True)
+			If Not firmdoc Is Nothing Then 
+				If Messagebox ( tmps.Caller(0) + " в данный момент отсутствует на работе. Добавить в лист рассылки его замещающего!?"  , 4 + 32 + 256 + 0  , "ВНИМАНИЕ!" ) = 6 Then
+					Call DocAccess.AddEmployee( firmdoc , False )
+					checkAssistZam = DocAccess.Employees(0)
+					Delete DocAccess
+				End If ' Messagebox
+			End If ' Not firmdoc Is Nothing
+		End If ' doc.AssistantAddress(0) <> "" 
+	End If ' Not doc Is Nothing
+	
+	Exit Function
+ErrHnd:  
+	Call errh(" Function checkAssistZam ")
+End Function
+
+'++LotusScript Development Environment:2:2:MakeFromBuffOLD:1:8
+Sub MakeFromBuffOLD
+	On Error Goto ErrHnd
+	Dim ws As New notesuiworkspace
+	Dim sess As New notessession
+	Dim imagedoc As NotesDocument
+	Dim pardoc As NotesDocument
+	Dim curdoc As notesdocument
+	Dim curdb As notesdatabase
+	Dim uidoc As NotesUIDocument
+	Set uidoc = ws.CurrentDocument
+	
+	Set curdb = sess.CurrentDatabase
+	Set curdoc = ws.CurrentDocument.Document ' curdb.GetDocumentByUNID(unid$)
+	If curdoc.IsNewNote Then
+		If Messagebox ( "Для вложения необходимо сохранить текущий документ! Сохранить?"  , 4 + 32 + 256 + 0  , "Сохранить!" ) = 6 Then
+			Call curdoc.Save(True,True)
+		Else
+			Msgbox "продолжение не возможно..."
+			Exit Sub
+		End If
+	End If
+	Set imagedoc = curdb.CreateDocument 
+	imagedoc.InternalNumber = curdoc.InternalNumber(0)
+'%%%%%%%ДОСТУП
+	Set it1 = imagedoc.ReplaceItemValue("AuthorNames_Rep",FromMain(curdb,"servgroup"))
+	Call it1.AppendToTextList("Servers_PKC")
+	Call it1.AppendToTextList("Cluster_Strong")
+	it1.IsAuthors = True
+	imagedoc.DefaultReaders = "[CanReadAllDocs]"
+	imagedoc.DefaultEditors = "[CanEditAllDocs]"
+	Set item =  imagedoc.GetFirstItem( "DefaultReaders" )
+	item.IsReaders = True
+	Set item =  imagedoc.GetFirstItem( "DefaultEditors" )
+	item.IsAuthors = True
+	Set it1 = imagedoc.ReplaceItemValue("AuthorNames",curdoc.AuthorNames)
+	it1.IsAuthors = True	
+	Set it1 = imagedoc.ReplaceItemValue("Editors",curdoc.Editors)
+	Set it1 = imagedoc.ReplaceItemValue("ReaderNames",curdoc.ReaderNames)
+	it1.IsReaders = True	
+	Set it1 = imagedoc.ReplaceItemValue("Readers",curdoc.Readers)
+'%%%%%%%	
+	Dim view As NotesView
+	imagedoc.imagedocUnid = curdoc.UniversalID 
+	imagedoc.imagedocDbRepl = curdoc.ParentDatabase.ReplicaID
+	imagedoc.AttachType = curdoc.Form(0)
+	imagedoc.Form = "tmp" ' "link" - ?
+	If Not imagedoc.Save(True,True) Then Msgbox "вложение не может быть приложено!!" : Exit Sub
+'	End If
+'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	
+	Dim rtitem As NotesRichTextItem	
+	Dim rtitem3 As NotesRichTextItem	
+	Dim object As NotesEmbeddedObject
+	Set rtitem3 = New NotesRichTextItem( imagedoc, "Body" )	
+	dialog$ = sess.GetEnvironmentValue("dialog")
+	If dialog$ = "1" Then
+		Call ws.DialogBox( imagedoc.Form(0), True, True, False,False ,False ,False , "Доступ к документу", imagedoc, True )
+	Else
+		Set uidoc = ws.EditDocument(True,imagedoc)
+		Call  uidoc.GotoField( "Body" )
+		Call uidoc.Paste
+		Call uidoc.Save
+		Set rtitem = uidoc.Document.GetFirstItem("Body")
+'''''''''------------------''''''''''''''''''	
+		uidoc.Document.Form = "comment"
+		Set rtnav = rtitem.CreateNavigator
+		If GetCount(RTELEM_TYPE_DOCLINK) > 0 Then
+			uidoc.Document.Form = "link"
+			rtnav.FindFirstElement(RTELEM_TYPE_DOCLINK)
+			Set rtlink = rtnav.GetElement
+			uidoc.Document.InView =  rtlink.DisplayComment
+		End If		
+		If GetCount(RTELEM_TYPE_FILEATTACHMENT) > 0 Then Msgbox "Воспользуйтесь кнопкой <<Добавить с диска>>" : Exit Sub
+		If GetCount(RTELEM_TYPE_OLE) > 0 Then Msgbox "Воспользуйтесь кнопкой <<Добавить с диска>>" : Exit Sub
+		If GetCount(RTELEM_TYPE_SECTION) > 0 Or GetCount(RTELEM_TYPE_TABLE) > 0_
+		Or GetCount(RTELEM_TYPE_TABLECELL) > 0 Or GetCount(RTELEM_TYPE_TEXTPARAGRAPH) > 0_
+		Or GetCount(RTELEM_TYPE_TEXTRUN) Then
+			uidoc.Document.InView = Replace(Replace(uidoc.Document.Body,Chr(13),""),Chr(10),"")
+		Else
+			uidoc.Document.InView = "Просмотр содержания по двойному клику"
+'			Msgbox "не понятно что.... выходим..."
+		End If
+''''''''''''''''''''''''''''''''''''''''------------------
+		Msgbox "Содержимое буфера добавлено"		
+		Call uidoc.Document.Save(True,True)
+		Call uidoc.Close
+		Call ws.ViewRefresh	
+	End If
+	Exit Sub
+ErrHnd:
+	Call errh(" click Добавить из буффера ")
+End Sub
+
+'++LotusScript Development Environment:2:2:SynHro:1:8
+Sub SynHro(curdocs As NotesDocumentCollection)
+	On Error Goto ErrHnd
+	Dim ss As New NotesSession
+	Dim dbTask As NotesDatabase
+	Dim curdb As NotesDatabase
+	Dim view As NotesView
+	Dim curdoc As NotesDocument
+	Dim pardoc As NotesDocument
+	Dim pardoclink As NotesDocument
+	Dim doclink As NotesDocument
+'	Set dbTask = New NotesDatabase( curdb.Server, Strleft(curdb.FilePath,"\")+"\firm.nsf" )
+	Set curdb = ss.CurrentDatabase
+	Set dbTask = ss.GetDatabase(curdb.Server, Strleft(curdb.FilePath,"\")+"\task.nsf" )
+	Set view = dbTask.GetView("(ByDocLinkUnid)")
+'		If Not dbt.IsOpen Then Msgbox "База данных ""Фирмы"" не найдена.", 48, "Ошибка" : 	Exit Sub
+	Set curdoc = curdocs.GetFirstDocument 
+	Set memo = curdb.CreateDocument '(_/_)(_/_)(_/_)
+	memo.form = "memo"
+	memo.subject = Cstr(curdocs.Count)
+	Call memo.send(False,"vveprinskiy@roscomsys.ru")  '(_/_)(_/_)(_/_)
+	While Not curdoc Is Nothing
+		If curdoc.Form(0) = "task" Then
+			Set doclink = view.GetDocumentByKey(curdoc.UniversalID ,True)
+			If doclink Is Nothing Then
+				Set doclink = curdoc.CopyToDatabase( dbTask )
+				If curdoc.HasItem("$REF") Then
+					Set pardoc = curdb.GetDocumentByUNID(curdoc.GetItemValue("$REF")(0))
+					If Not pardoc Is Nothing Then 
+						Set pardoclink = view.GetDocumentByKey(pardoc.UniversalID ,True)						
+						Call doclink.MakeResponse( pardoclink )	
+					End If
+				End If
+				doclink.DocLinkUnid = curdb.ReplicaID + "%" + curdoc.UniversalID
+				Call doclink.Save(True,True)
+			Else
+				Call curdoc.CopyAllItems( doclink, True )
+				Call doclink.Save( True, True )
+			End If
+		End If ' 		if curdoc.Form(0) = "task"		
+		Set curdoc = curdocs.GetNextDocument(curdoc)
+	Wend
+	Exit Sub
+ErrHnd:  
+	Call errh(" sub SynHro ")
+End Sub
+
+'++LotusScript Development Environment:2:2:SendToSign:1:8
+Sub SendToSign
+	On Error Goto ErrHnd
+	Dim ws As New NotesUIWorkspace
+'	If Source.EditMode Then Source.EditMode = False
+'	Dim SN As New notesname(curdb.server)
+	Dim db As NotesDatabase, maildoc As NotesDocument, rtitem As NotesRichTextItem, dbOrd As NotesDatabase, crdoc As NotesDocument, session As New NotesSession
+	Dim user As String, nam  As NotesName 
+	Set nam= session.CreateName(session.UserName)
+	user=nam.Common
+	Set curdb = session.CurrentDatabase
+	Set crdoc=ws.CurrentDocument.document		
+'-----------------------проверка согласования------------------------
+	
+	Set viewwiza = curdb.GetView("wizagood")
+	Set rewiza = viewwiza.GetAllDocumentsByKey(crdoc.UniversalID)
+	Set docwiza = rewiza.GetFirstDocument
+	FlagWiza = False
+	While Not docwiza Is Nothing
+		If docwiza.Form(0)="wiza" And docwiza.NotSign(0) = "" Then
+'			crdoc.Status_wiza="1"
+			FlagWiza = True
+		End If		
+		Set docwiza = rewiza.GetNextDocument(docwiza)
+	Wend	
+	If Not FlagWiza Then
+		If Messagebox("Внимание! Данный документ не имеет положительного листа согласования. Отправить на подпись?", 4 + 32 + 256, "Внимание!") <> 6 Then Msgbox "действие отменено": Exit Sub
+	End If
+'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	crdoc.Status = "На подготовке на подпись" 
+	crdoc.st = "( Отправлен  " +Now() + "  "+ user+ "  )"
+	crdoc.Date_Sendsign= Now()
+	crdoc.Date_Send = Now()
+	Set maildoc = New NotesDocument(curdb)
+	tmpSubject = "На подготовку на подпись документ из БД Проекты ОРД:  " & crdoc.Info(0) + "  ( №п/п - " + crdoc.InternalNumber(0) + " )"
+	maildoc.Subject = tmpSubject
+	maildoc.InheritedSubject = crdoc.Info(0)
+			'maildoc.InheritedDbTitle = DbTitle
+	maildoc.FlowStatus = tmpFlowStatus	
+	maildoc.Form = "Bookmark"	
+'maildoc.InheritedDbTitle = crdoc.DbTitle(0)		
+		tmpFlowStatus="Пожалуйста, передайте на подпись данный документ"			
+'(-/_) 2012.08.07
+'If session.Username = "CN=Вепринский Виталий Львович/O=PKC" Or session.Username = "CN=Lotus Designer/O=PKC" Then
+If crdoc.Executor(0)<>"" Then
+If crdoc.Hasitem("VisordSetup") then	
+If crdoc.VisordSetup(0) = "1" Then
+	MsgBox "Документ отправлен ассистенту: " + crdoc.Executor(0) + " на подготовку на подпись " ' + res
+'--------------- письмо Ассистенту ---------------
+		Call maildoc.AppendItemValue("SendTo", crdoc.ExecutorAddr(0) )
+		Set rtitem = New NotesRichTextItem(maildoc, "Body")		
+		DbTitle = curdb.Title		
+		maildoc.InheritedDbTitle = DbTitle
+		Call  rtitem.AppendDocLink(crdoc, "Ссылка на документ: " ) '		Call  rtitem.AppendDocLink(crdoc, "Ссылка на документ: " )		
+		Call maildoc.Send (False)
+	Call crdoc.Save(True,True)
+	Set tmp = crdoc
+	ws.CurrentDocument.Close
+	Call ws.EditDocument(False,tmp)
+'	Call ws.CurrentView.View.Refresh
+	Call ws.ViewRefresh
+	Exit Sub
+End If
+End if
+End if
+'End If
+'(-/_) 	
+	zug$ = ""
+	If LCase(InStr(curdb.Filename , "_") ) > 0 Then
+	 	zug$ = "_" + StrLeft(strright(curdb.Filename,"_"),".")	
+	End If
+	Set dbOrd = session.GetDatabase( curdb.Server, StrLeftBack(curdb.FilePath,"\")+"\ORD" + zug$ + ".NSF" )
+'	Set db = session.GetDatabase( curdb.Server, Strleftback(curdb.FilePath,"\")+"\ORD.NSF" )	
+	Dim qdoc As notesdocument
+	Dim v As NotesView
+
+	Set qdoc = dbOrd.CreateDocument
+	crdoc.DZak = Now() '(_/_)
+	crdoc.SZak = session.UserName '(_/_)
+	Call crdoc.CopyAllItems(qdoc)
+	Set item = qdoc.GetFirstItem( "UniqueID_1" )
+	If Not item Is Nothing Then	Call item.Remove
+
+	qdoc.ReaderNames = crdoc.AuthorNames
+	qdoc.Readers = crdoc.Editors
+	Call qdoc.ReplaceItemValue("AuthorNames",crdoc.ToNotesAddress(0))
+	Call qdoc.ReplaceItemValue("Editors",crdoc.ToInfo(0))
+
+'	qdoc.SP = "Подписал" 
+	qdoc.Status="На подготовке"
+	qdoc.Form = "ORD"
+	qdoc.Date_create= Now()
+	qdoc.InternalNumber=""
+	qdoc.st = "(   " +Now() + "  "+ user+ "  )"
+	qdoc.CreatorAddr = session.UserName
+	If crdoc.Hasitem("qGroup") Then
+	If crdoc.qGroup(0) <> "" Then
+			qdoc.qGroup = crdoc.qGroup
+		End If
+	End If 	
+	Call qdoc.ReplaceItemValue("InternalNumber","")
+	Call qdoc.ReplaceItemValue("Numdocp",crdoc.InternalNumber(0))
+	qdoc.ProjectUnid = crdoc.UniversalID
+'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%		
+	Call DefaultExecutor(qdoc, crdoc.ToInfo(0))'EditAccess.Employees(0))
+'%%%%%%%%%%%%отправим вложеня в базу РД%%%%%%%%%%%%%%%%%%%%%%	
+	Set view = curdb.GetView("(vimage)")
+	Set colimage = view.GetAllDocumentsByKey(crdoc.UniversalID )
+	Set pardoc = colimage.GetFirstDocument
+	While Not pardoc Is Nothing
+		Set newimg = pardoc.copytodatabase(dbOrd)
+		newimg.IMAGEDOCUNID = qdoc.UniversalID
+		newimg.project = "1"
+		Call newimg.save(True,True)
+		Set pardoc = colimage.GetNextDocument(pardoc)
+	Wend
+'(_/_)(_/_)(_/_)(_/_)	
+	Call crdoc.Save(True,True)
+	Set rtitem = New NotesRichTextItem(qdoc, "pLink")
+	Call  rtitem.AppendDocLink(crdoc, "Ссылка на документ: " ) '
+	If qdoc.Save(True,True) Then 
+		Msgbox "Документ отправлен в канцелярию на подготовку на подпись " ' + res
+'--------------- письмо в канцелярию ---------------
+	If InStr(LCase(session.CurrentDatabase.Filepath ),"sed_voek") > 0 Then
+		MailList =  FromMain(curdb,"ListSend") ' 
+	Else
+		MailList = "Block_Office_remrd_" + FromMain(curdb,"PostFix") ' res
+	End if
+		
+		Call maildoc.AppendItemValue("SendTo", MailList )
+		Set rtitem = New NotesRichTextItem(maildoc, "Body")
+		
+		DbTitle = dbOrd.Title
+		
+		maildoc.InheritedDbTitle = DbTitle
+		
+		Call  rtitem.AppendDocLink(qdoc, "Ссылка на документ: " ) '		Call  rtitem.AppendDocLink(crdoc, "Ссылка на документ: " )
+		
+		Call maildoc.Send (False)
+		
+'----------------соберем листы согласования и создадим их копии в орд базе, прикрепим их к qdoc
+		Dim col As NotesDocumentCollection
+		Dim wiza As NotesDocument
+		Dim wizard As NotesDocument
+		Set col = crdoc.Responses
+		Set wiza = col.GetFirstDocument
+		While Not wiza Is Nothing
+			If wiza.Dorm(0) = "" Then
+				Set wizard = dbOrd.CreateDocument
+				Call wiza.CopyAllItems(wizard)
+				Call wizard.MakeResponse(qdoc)
+				Call wizard.save(True,True)
+			End If
+			Set wiza = col.GetNextDocument(wiza) 
+		Wend
+	End If '%%%%%%%%%%%% If qdoc.Save(True,True) Then
+	Set tmp = crdoc
+	ws.CurrentDocument.Close
+	Call ws.EditDocument(False,tmp)
+'	Call ws.CurrentView.View.Refresh
+	Call ws.ViewRefresh
+	Exit Sub
+ErrHnd:  
+	Call errh(" отправить на подготовку на подпись  ")
+End Sub
+
+'++LotusScript Development Environment:2:2:ShellWait:1:8
+Sub ShellWait(Pathname As String, WindowStyle As Long)
+	Dim proc As PROCESS_INFORMATION
+	Dim start As STARTUPINFO
+	Dim ret As Long
+%REM
+	With start
+		.cb = Len(start)
+		If Not IsMissing(WindowStyle) Then
+			.dwFlags = STARTF_USESHOWWINDOW
+			.wShowWindow = WindowStyle
+		End If
+	End With
+%END REM
+  ' Start the shelled application:
+	ret& = CreateProcessA(0&, Pathname, 0&, 0&, 1&, NORMAL_PRIORITY_CLASS, 0&, 0&, start, proc)
+    ' Wait for the shelled application to finish:
+	ret& = WaitForSingleObject(proc.hProcess, INFINITE)
+	ret& = CloseHandle(proc.hProcess)
+End Sub
+
+'++LotusScript Development Environment:2:2:getresp:1:8
+Sub getresp(tmp,col)
+	On Error Goto ErrHnd
+	On Error 4000 Resume Next
+	Dim tmps As NotesDocument
+	Dim tmpcol As NotesDocumentCollection
+	
+	If col.GetDocument(tmp) Is Nothing Then Call col.AddDocument(tmp)
+	Set tmpcol = tmp.Responses
+	If tmpcol Is Nothing Then Exit Sub
+	If tmpcol.Count > 0 Then 
+		Set tmps = tmpcol.GetFirstDocument	
+		While Not tmps Is Nothing
+'(_/_)			Call getresp(tmps,col) ' If tmps.Responses.Count > 0 Then
+			Set tmps = tmpcol.GetNextDocument(tmps)
+		Wend
+	End If ' tmp.Responses.Count > 0 
+	
+	Exit Sub
+ErrHnd:
+	Call errh(" -> sub getresp ")
+End Sub
+
+'++LotusScript Development Environment:2:2:addAssist:1:8
+Sub addAssist
+	On Error Goto ErrHnd
+	Dim imagedoc As NotesDocument
+	Dim pardoc As NotesDocument
+	Dim curdoc As notesdocument
+	Dim curdb As notesdatabase
+	Dim tmps As NotesDocument
+	Dim ws As New NotesUIWorkspace
+	Set curdoc = ws.CurrentDocument.Document
+	If curdoc.ExecutorInfo(0)=""  Then 	Exit Sub
+	Dim Readers As DocumentAccess2	
+	If Readers Is Nothing Then
+		Set Readers = New DocumentAccess2( curdoc, "Readers", "ReaderNames" )
+	Else
+		Readers.Update
+	End If
+	Redim qInfo(0 To Ubound(curdoc.ExecutorInfo))		
+	Redim qAddr(0 To Ubound(curdoc.ExecutorInfo))		
+	Redim qView(0 To Ubound(curdoc.ExecutorInfo))		
+	For kk = 0 To Ubound(curdoc.ExecutorInfo)
+		Set db_setup = New NotesDatabase( Readers.Server, Strtoken(curdoc.IdDoc(kk),"!",2))
+		If db_setup Is Nothing Then 
+			Msgbox "не найден справочник для исполнителя: " + Strtoken(curdoc.IdDoc(kk),"!",1)
+		Else
+			Set view = db_setup.GetView("(byNotesAddress)")
+			Set doc = view.GetDocumentByKey(Strtoken(curdoc.ExecutorInfo(kk), "!",4) ,True)
+			If Not doc Is Nothing Then
+				If doc.persoassistantaddressbloff(0) <> "" Then ' ассистент для блока канцелярии - для всех типов задач
+					Set tmps = view.GetDocumentByKey(doc.persoassistantaddressbloff(0),True)
+					If Not tmps Is Nothing Then 
+						Call Readers.AddEmployee( tmps, False )
+						Call Readers.SetAccess
+						qInfo(kk) = Readers.EmployeeInfo(tmps)
+						qAddr(kk) = doc.persoassistantaddressbloff(0)
+						qView(kk) = Strtoken(qInfo(kk),"!",1)
+					Else
+						qInfo(kk) = curdoc.ExecutorInfo(kk)
+						qAddr(kk) = Strtoken(curdoc.ExecutorInfo(kk),"!",4)
+						qView(kk) = Strtoken(qInfo(kk),"!",1)
+					End If ' Not tmps Is Nothing
+				Else ' If doc.persoassistantaddressbloff(0) <> "" 
+					qInfo(kk) = curdoc.ExecutorInfo(kk)
+					qAddr(kk) = Strtoken(curdoc.ExecutorInfo(kk),"!",4)
+					qView(kk) = Strtoken(qInfo(kk),"!",1)
+				End If ' doc.persoassistantaddressbloff(0) <> "" 
+			End If ' Not doc Is Nothing
+		End If ' If db_setup Is Nothing
+	Next
+	For jj = 0 To Ubound(qInfo)
+		ass$ = checkAssistZam(Strtoken(qInfo(jj),"!",4)) 
+		If  ass$ <> "" Then
+			Call Readers.AddEmployeeLine( ass$, False) 
+			Call Readers.SetAccess
+			qInfo(jj) = Join(Arrayunique(Split( qInfo(jj)+"," + ass$   ,",")),",")
+			qAddr(jj) = Join(Arrayunique(Split( qAddr(jj)+"," + Strtoken(ass$,"!",4)   ,",")),",")
+			qView(jj) = Join(Arrayunique(Split(qView(jj)+"," + Strtoken(ass$,"!",1)   ,",")),",")
+'			Msgbox Strtoken(qInfo(jj),"!",1) + " в данный момент отсутствует на работе. В лист рассылки будет добавлен его замещающий!"
+		End If
+	Next
+	curdoc.ExecutorInfo_1 = qInfo
+	curdoc.ExecutorAddr_1 = qAddr
+	curdoc.Executor_1 = qView
+	
+	Exit Sub
+ErrHnd:  
+	Call errh(" sub addAssist ")
+End Sub
+
+'++LotusScript Development Environment:2:1:GetAss:1:8
+Function GetAss(fname$, nam$,dostup,qadd) As Variant
+	On Error Goto ErrHnd
+	Dim dbt As NotesDatabase
+	Dim view As NotesView
+	Dim doczam As NotesDocument
+	Dim SN2 As NotesName
+	Dim qarr(0 To 1) As String
+	qarr(0) = ""
+	qarr(1) = ""
+	GetAss = qarr
+	If nam$ = "" Then Exit Function
+'	Redim Preserve dostup( 0 To Ubound(dostup) + 1 )	в доступ идут все, независимо от того, кто идет в поле подписанта
+	Dim ss As New NotesSession
+	Set dbt = New NotesDatabase( ss.CurrentDatabase.Server, Strleftback(ss.CurrentDatabase.FilePath,"\") + "\firm.nsf")
+	If Not dbt.IsOpen Then Msgbox "База данных ""Фирмы"" не найдена.", 48, "Ошибка" : Exit Function
+	
+	Set view = dbt.getview("(byNotesAddressCA)") 
+	
+	Set SN2 =  New notesname(nam$) ' ищем для него зама
+	Set doczam = view.GetDocumentByKey(SN2.Canonical)
+	
+	If Not doczam Is Nothing Then
+		If doczam.GetItemValue("persoassistantaddressbloff")(0) = "" Then Exit Function
+		Set SN2 =  New notesname(doczam.GetItemValue("persoassistantaddressbloff")(0))
+		qarr(0) = SN2.Canonical
+		Set docAss = view.GetDocumentByKey(SN2.Canonical)
+		qarr(1) = docAss.Caller(0) + "!" + docAss.Firm(0) + "!" + docAss.CallerTitle(0) + "!" + docAss.NotesAddress(0) + "!0!"+ Replace(Replace(Replace(Replace(docAss.Depatr(0),","," "),";"," "),Chr(10)," "),Chr(13)," ")  + "!-!-!-!-" 
+		Call dostup.AddEmployeeLine( qarr(1) , False ) ' в д оступ всегда пишем всех
+		If docAss.AssistantAddress(0) <> "" Then ' если у асса есть зам
+			
+			qwert = GetZam("Ассистент", doczam.GetItemValue("persoassistantaddressbloff")(0) ,dostup,qadd)
+			qarr(0) = qwert(0)
+			qarr(1) = qwert(1)
+		End If
+		
+		GetAss = qarr
+		
+	End If ' 	If Not doczam Is Nothing Then
+	Exit Function
+ErrHnd:  
+	Call errh(" Function GetAss ")
+End Function
+
+'++LotusScript Development Environment:2:2:MakeImage:1:8
+Sub MakeImage
+	Call MakeImageNew()
+Exit Sub
+	On Error Goto ErrHnd
+		On Error 4225 GoTo hnd2
+	Dim ws As New notesuiworkspace
+	Dim sess As New notessession
+	Dim imagedoc As NotesDocument
+	Dim pardoc As NotesDocument
+	Dim curdoc As notesdocument
+	Dim curdb As notesdatabase
+	Dim uidoc As NotesUIDocument
+	Set uidoc = ws.CurrentDocument
+	Dim newuidoc As NotesUIDocument
+	Set curdb = sess.CurrentDatabase
+	Set curdoc = ws.CurrentDocument.Document ' curdb.GetDocumentByUNID(unid$)
+'	Msgbox curdoc.IsNewNote
+	If curdoc.IsNewNote Then
+		If Messagebox ( "Для вложения необходимо сохранить текущий документ! Сохранить?"  , 4 + 32 + 256 + 0  , "Сохранить!" ) = 6 Then
+			Call curdoc.Save(True,True)
+		Else
+			Msgbox "продолжение не возможно..."
+			Exit Sub
+		End If
+	End If	
+'%%%%%%%	
+	lastdir$ = sess.GetEnvironmentString("lastdir")
+	If lastdir$  = "" Then lastdir$  = Environ("Мои документы")
+	attach = ws.OpenFileDialog( True, "Выберите вложение",,lastdir$) ' Environ("MyDocuments")
+	If Isempty(attach) Then  Exit Sub ' Msgbox "ничего не выбрано..." :
+	res = Evaluate(|@FileDir("|+ Replace(attach(0),"\","\\") + |")|,curdoc)	
+	lastdir$ = res(0)
+	Call sess.SetEnvironmentVar("lastdir",lastdir$)
+	For jj = 0 To Ubound(attach)
+		Set imagedoc = curdb.CreateDocument 
+'%%%%%%%ДОСТУП
+		Set it1 = imagedoc.ReplaceItemValue("AuthorNames_Rep",FromMain(curdb,"servgroup"))
+		Call it1.AppendToTextList("Servers_PKC")
+		Call it1.AppendToTextList("Cluster_Strong")
+		it1.IsAuthors = True
+		imagedoc.DefaultReaders = "[CanReadAllDocs]"
+		imagedoc.DefaultEditors = "[CanEditAllDocs]"
+		Set item =  imagedoc.GetFirstItem( "DefaultReaders" )
+		item.IsReaders = True
+		Set item =  imagedoc.GetFirstItem( "DefaultEditors" )
+		item.IsAuthors = True
+		Set it1 = imagedoc.ReplaceItemValue("AuthorNames",curdoc.AuthorNames)
+		it1.IsAuthors = True	
+		Set it1 = imagedoc.ReplaceItemValue("Editors",curdoc.Editors)
+		Set it1 = imagedoc.ReplaceItemValue("ReaderNames",curdoc.ReaderNames)
+		it1.IsReaders = True	
+		Set it1 = imagedoc.ReplaceItemValue("Readers",curdoc.Readers)
+'%%%%%%%	
+		imagedoc.imagedocUnid = curdoc.UniversalID 
+		imagedoc.imagedocDbRepl = curdoc.ParentDatabase.ReplicaID
+		imagedoc.AttachType = curdoc.Form(0)
+		imagedoc.Form = "fimage"
+		If Not imagedoc.Save(True,True) Then Msgbox "вложение не может быть приложено!!" : Exit Sub
+'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	
+		Dim rtitem As NotesRichTextItem	
+		Dim rtitem3 As NotesRichTextItem	
+		Dim object As NotesEmbeddedObject
+		If Not imagedoc.HasItem("body") Then
+			Set rtitem3 = New NotesRichTextItem( imagedoc, "body" )	
+		Else
+			Set rtitem3 = imagedoc.GetFirstItem("body" )	
+		End If
+		Set object = rtitem3.EmbedObject( EMBED_ATTACHMENT, "", attach(jj))
+		imagedoc.InView = object.Name		
+		rtitem3.Update
+'	imagedoc.InView = Fulltrim(rtitem3.GetUnformattedText)
+	Dim col As NotesDocumentCollection
+	Call ws.Viewrefreshbydbid(curdb.replicaid, "(vimage)")
+	Set col = curdb.Getview("(vimage)").Getalldocumentsbykey(curdoc.UniversalID, True)
+	imagedoc.numb = col.count + 1
+		Call imagedoc.Save(True, True)
+	Next
+'	Msgbox "Файлы добавлены"	
+	Call ws.ViewRefresh		
+	Exit Sub
+ErrHnd:
+	Call errh(" click Добавить вложение ")
+	Exit Sub
+hnd2: MsgBox "Не найден файл... Попробуйте выбрать его еще раз" 
+	Exit Sub
+	End Sub
+
+'++LotusScript Development Environment:2:2:ImgQeuryOpen:1:8
+Sub ImgQeuryOpen(fName$)
+	On Error Goto ErrHnd
+	Dim ws As New NotesUIWorkspace
+	Dim sess As New notessession
+	Dim curdb As notesdatabase
+	Set curdb=sess.currentdatabase
+	Dim curdoc As NotesDocument
+	Set curdoc = ws.CurrentDocument.Document ' uidoc.Document
+	Dim view As notesview
+	If curdoc.IsNewNote Then
+		If Messagebox ( "Для вложения необходимо сохранить текущий документ! Сохранить?"  , 4 + 32 + 256 + 0  , "Сохранить!" ) = 6 Then
+			Call curdoc.Save(True,True)
+		Else
+			Msgbox "продолжение не возможно..."
+			Exit Sub
+		End If
+	End If
+	zug$ = ""
+	If LCase(InStr(curdb.Filename , "_") ) > 0 Then
+	 	zug$ = "_" + StrLeft(StrRight(curdb.Filename,"_"),".")	
+	End If
+	If curdb.FileName <> "ORD" + zug$ + ".NSF" Then 
+		Set curdb = sess.GetDatabase( curdb.Server, Strleftback(curdb.FilePath,"\")+"\ORD" + zug$ + ".NSF" )
+		qreplID = curdb.ReplicaID
+		Set qTask = New NotesDatabase("", "")
+		If Not qTask.OpenByReplicaID(curdb.Server, qreplID) Then Msgbox "нельзя открыть" + qTask.FilePath : Exit Sub
+	End If
+	Set view = curdb.GetView("attach")
+	Set doc = view.GetDocumentByKey(fName$,True)
+	If doc Is Nothing Then Msgbox "Не найден файл шаблонов!" : Exit Sub
+	If Not doc.HasItem("Body") Then  Msgbox "Неn вложения в файле шаблонов!" : Exit Sub
+	Dim rtitem As NotesItem
+	Set rtitem = doc.GetFirstItem( "Body" )
+'		If ( rtitem.Type = RICHTEXT ) Then
+'			SYSDRIVE$ = Environ("SYSTEMDRIVE")
+'			If Not Isempty(rtitem.EmbeddedObjects) Then
+'		TempDir$ = Environ("Temp")		' SYSDRIVE$+
+'		Forall o In rtitem.EmbeddedObjects
+'			Call o.ExtractFile( TempDir$+"\" & o.Source )			
+	Set imagedoc = sess.currentdatabase.CreateDocument  '(_/_)
+	Call rtitem.CopyItemToDocument(imagedoc,"Body")
+'%%%%%%%ДОСТУП
+	Set it1 = imagedoc.ReplaceItemValue("AuthorNames_Rep",FromMain(curdb,"servgroup"))
+	Call it1.AppendToTextList("Servers_PKC")
+	Call it1.AppendToTextList("Cluster_Strong")
+	it1.IsAuthors = True
+	imagedoc.DefaultReaders = "[CanReadAllDocs]"
+	imagedoc.DefaultEditors = "[CanEditAllDocs]"
+	Set item =  imagedoc.GetFirstItem( "DefaultReaders" )
+	item.IsReaders = True
+	Set item =  imagedoc.GetFirstItem( "DefaultEditors" )
+	item.IsAuthors = True
+	Set it1 = imagedoc.ReplaceItemValue("AuthorNames",curdoc.AuthorNames)
+	it1.IsAuthors = True	
+	Set it1 = imagedoc.ReplaceItemValue("Editors",curdoc.Editors)
+	Set it1 = imagedoc.ReplaceItemValue("ReaderNames",curdoc.ReaderNames)
+	it1.IsReaders = True	
+	Set it1 = imagedoc.ReplaceItemValue("Readers",curdoc.Readers)
+'%%%%%%%	
+	imagedoc.imagedocUnid = curdoc.UniversalID 
+	imagedoc.imagedocDbRepl = curdoc.ParentDatabase.ReplicaID
+	imagedoc.AttachType = curdoc.Form(0)
+	imagedoc.Form = "fimage"
+'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	
+	Dim rtitem3 As NotesRichTextItem	
+'	Dim object As NotesEmbeddedObject
+'			If Not imagedoc.HasItem("body") Then
+'				Set rtitem3 = New NotesRichTextItem( imagedoc, "body" )	
+'			Else
+	Set rtitem3 = imagedoc.GetFirstItem("Body" )	
+'			End If
+'			Set object = rtitem3.EmbedObject( EMBED_ATTACHMENT, "", TempDir$+"\" & o.Source)
+	imagedoc.InView = rtitem3.EMBEDDEDOBJECTs(0).name 'object.Name		
+'			rtitem3.Update
+	Call imagedoc.Save(True, True) '(_/_)
+	Call ws.ViewRefresh		
+'	If Not imagedoc.Save(True,True) Then Msgbox "вложение не может быть приложено!!" : Exit Sub	
+'					Set object = rt.EmbedObject( EMBED_ATTACHMENT, "", TempDir$+"\" & o.Source)
+'			Kill TempDir$+"\" & o.Source
+'		End Forall
+'	End If '''''''''''' Not Isempty(rtitem.EmbeddedObjects
+'End If '''''''''' rtitem.Type = RICHTEXT 
+'End If '''''' curdoc.HasItem("Appendix")
+'%%%%%%%%%%%%%%%	
+	
+	Exit Sub
+ErrHnd:  
+	Call errh(" Sub ImgQeuryOpen ")
+End Sub
+
+'++LotusScript Development Environment:2:2:fimageUp:1:8
+Sub fimageUp()
+	On Error GoTo ErrHnd	
+	Dim ss As New NotesSession, col As NotesDocumentCollection, doc As NotesDocument, ws As New NotesUIWorkspace, view As NotesView, tmp As NotesDocument
+	Dim tmp2 As NotesDocument, qflag As Boolean, prevdoc As NotesDocument, jj As Long, entry As NotesViewEntry, vc As NotesViewEntryCollection
+	Dim nav As NotesViewNavigator, preventry As NotesViewEntry, curnid$, tmpnid$, vname$
+'	Set col = ws.Currentview.Documents
+	vname$ = ws.Currentview.Viewname
+	Set view = ss.Currentdatabase.Getview(vname$)
+	curnid$ = ws.Currentview.Caretnoteid
+	view.AutoUpdate = False
+'	Set col = ss.Currentdatabase.Unprocesseddocuments
+'	If col.Count <> 1 Then GoTo qnichts
+	Set doc = ss.Currentdatabase.Getdocumentbyid(curnid$ )
+	If doc Is Nothing Then GoTo qnichts
+	If Not(doc.Form(0) = "fimage" Or doc.Form(0) = "link" Or doc.Form(0) = "comment") Then GoTo qnichts	
+	Set nav = view.CreateViewNavFromCategory(doc.imagedocUnid(0))
+	Set entry = nav.GetFirstDocument
+
+	While Not entry Is Nothing
+'		MsgBox entry.Columnvalues(2) + " - " + entry.Noteid + " - " + entry.Getposition(".")
+		Set tmp = entry.Document
+		tmpnid$ = tmp.Noteid
+		If Not tmp.Hasitem("numb") Then  
+'			entry.Document.numb = CInt(Strright(entry.Getposition(".") , "."))
+'			Call entry.Document.Replaceitemvalue("numb", qwet%) 
+			Call tmp.Replaceitemvalue("numb", CInt(StrRight(entry.Getposition(".") , ".")))
+			Call tmp.Save(True,True)
+'			MsgBox "entry new= " + CStr(tmp.numb(0))
+'			Call tmp.save(True,True)
+'			qwet% = tmp.numb(0)
+		End If
+'		If entry.Noteid = ws.Currentview.Caretnoteid Then
+		If tmpnid$ = curnid$ Then
+			If tmp.numb(0) = 1 Then 	MsgBox "Позиция вложения уже установлена первой" : Exit Sub
+			tmp.numb = CInt(tmp.numb(0) - 1)
+ 			Set preventry = nav.Getprev(entry)
+			Set prevdoc = preventry.Document	
+			Call tmp.Save(True,True)
+'			MsgBox "entry= " + CStr(tmp.numb(0))
+			If Not prevdoc Is Nothing Then
+				If Not prevdoc.Hasitem("numb") Then 
+					prevdoc.numb = CInt(StrRight(preventry.Getposition(".") , ".") + 1)
+				Else
+					prevdoc.numb = CInt(prevdoc.numb(0) + 1)
+				End If
+				Call prevdoc.Save(True,True)
+'				MsgBox "preventry= " + CStr(prevdoc.numb(0))	
+			End If
+		End If
+		Set entry = nav.Getnext(entry)
+	Wend
+	Call ws.Viewrefreshbydbid(ss.Currentdatabase.replicaid, vname$)
+	Call ws.Currentview.SelectDocument( doc )
+	Exit Sub
+		qnichts: 	MsgBox "Выбирите одну строку с вложением" 
+	Exit Sub
+ErrHnd:  
+MsgBox CStr(Erl) + ": " + CStr(Err) + " " + CStr(Error) 	
+	Call errh(" fimageUp " )
+End Sub
+
+'++LotusScript Development Environment:2:2:MakeComment:1:8
+Sub MakeComment
+	On Error Goto ErrHnd
+	Dim ws As New notesuiworkspace
+	Dim sess As New notessession
+	Dim imagedoc As NotesDocument
+	Dim pardoc As NotesDocument
+	Dim curdoc As notesdocument
+	Dim curdb As notesdatabase
+	Dim uidoc As NotesUIDocument
+	Set uidoc = ws.CurrentDocument
+	
+	Set curdb = sess.CurrentDatabase
+	Set curdoc = ws.CurrentDocument.Document ' curdb.GetDocumentByUNID(unid$)
+	If curdoc.IsNewNote Then
+		If Messagebox ( "Для вложения необходимо сохранить текущий документ! Сохранить?"  , 4 + 32 + 256 + 0  , "Сохранить!" ) = 6 Then
+			Call curdoc.Save(True,True)
+		Else
+			Msgbox "продолжение не возможно..."
+			Exit Sub
+		End If
+	End If
+	Set imagedoc = curdb.CreateDocument 
+'%%%%%%%ДОСТУП
+	Set it1 = imagedoc.ReplaceItemValue("AuthorNames_Rep",FromMain(curdb,"servgroup"))
+	Call it1.AppendToTextList("Servers_PKC")
+	Call it1.AppendToTextList("Cluster_Strong")
+	it1.IsAuthors = True
+	imagedoc.DefaultReaders = "[CanReadAllDocs]"
+	imagedoc.DefaultEditors = "[CanEditAllDocs]"
+	Set item =  imagedoc.GetFirstItem( "DefaultReaders" )
+	item.IsReaders = True
+	Set item =  imagedoc.GetFirstItem( "DefaultEditors" )
+	item.IsAuthors = True
+	Set it1 = imagedoc.ReplaceItemValue("AuthorNames",curdoc.AuthorNames)
+	it1.IsAuthors = True	
+	Set it1 = imagedoc.ReplaceItemValue("Editors",curdoc.Editors)
+	Set it1 = imagedoc.ReplaceItemValue("ReaderNames",curdoc.ReaderNames)
+	it1.IsReaders = True	
+	Set it1 = imagedoc.ReplaceItemValue("Readers",curdoc.Readers)
+'%%%%%%%	
+	Dim view As NotesView
+	imagedoc.imagedocUnid = curdoc.UniversalID 
+	imagedoc.imagedocDbRepl = curdoc.ParentDatabase.ReplicaID
+	imagedoc.AttachType = curdoc.Form(0)
+	imagedoc.Form = "comment" ' "link" - ?
+'	If Not imagedoc.Save(True,True) Then Msgbox "вложение не может быть приложено!!" : Exit Sub
+'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	
+	Dim rtitem As NotesRichTextItem	
+	Dim rtitem3 As NotesRichTextItem	
+	Dim object As NotesEmbeddedObject
+	Set rtitem3 = New NotesRichTextItem( imagedoc, "Body" )	
+	Dim comm As Variant
+	comm = ws.Prompt (PROMPT_OKCANCELEDIT, "Введите комментарий", "Введите комментарий")
+	If Isempty (comm) Then Exit Sub
+'	If Not ws.DialogBox( imagedoc.Form(0), True, True, False,False ,False ,False , "Введите комментарий", imagedoc, True ) Then Exit Sub
+'	Call uidoc.Save
+	Set rtitem = imagedoc.ReplaceItemValue("Body",comm )
+'	Set rtitem = uidoc.Document.GetFirstItem("Body")
+'	Set rtitem = imagedoc.GetFirstItem("Body")
+'	uidoc.Document.Form = "comment"		
+'	Set rtnav = rtitem.CreateNavigator
+'	If GetCount(RTELEM_TYPE_FILEATTACHMENT) > 0 Then Msgbox "Воспользуйтесь кнопкой <<Добавить файл>>" : Exit Sub
+'	If GetCount(RTELEM_TYPE_OLE) > 0 Then Msgbox "Воспользуйтесь кнопкой <<Добавить файл>>" : Exit Sub
+'	If GetCount(RTELEM_TYPE_SECTION) > 0 Or GetCount(RTELEM_TYPE_TABLE) > 0_
+'	Or GetCount(RTELEM_TYPE_TABLECELL) > 0 Or GetCount(RTELEM_TYPE_TEXTPARAGRAPH) > 0_
+'	Or GetCount(RTELEM_TYPE_TEXTRUN) Then
+'		uidoc.Document.InView = Replace(Replace(uidoc.Document.Body,Chr(13),""),Chr(10),"")
+	imagedoc.InView = Replace(Replace(imagedoc.Body,Chr(13),""),Chr(10),"")
+''''''''''''''''''''''''''''''''''''''''------------------
+'		Call uidoc.Document.Save(True,True)
+	Dim col As NotesDocumentCollection
+	Call ws.Viewrefreshbydbid(curdb.replicaid, "(vimage)")
+	Set col = curdb.Getview("(vimage)").Getalldocumentsbykey(curdoc.UniversalID, True)
+	imagedoc.numb = col.count + 1
+	Call imagedoc.Save(True,True)
+'		Call uidoc.Close
+	Call ws.ViewRefresh	
+'	End If
+	Exit Sub
+ErrHnd:
+	Call errh(" click Добавить из буффера ")
+End Sub
+
+'++LotusScript Development Environment:2:2:MakeTask:1:8
+Sub MakeTask(TaskType$)
+	On Error GoTo ErrHnd
+	Select Case TaskType$
+	Case "0" : ttype$ = "Резолюция"
+	Case "1" : ttype$ = "Поручение"
+	Case "2" : ttype$ = "Рассылка"
+	End Select
+	Dim ss As New NotesSession, ws As New NotesUIWorkspace, curdoc As NotesDocument, maindoc As NotesDocument, doc As NotesDocument
+	Dim curdb As NotesDatabase, dbTask As NotesDatabase, uidoc As NotesUIDocument
+	Set curdb=ss.currentdatabase
+	Dim SN As New NotesName(curdb.server)
+	Set nam = ss.CreateName(ss.UserName)
+	TASKPUTH$ = FromMain2013(ss.CurrentDatabase, "TASKPUTH") ' прописан через setenyfield и в форме бд настроек данного поля нет
+	If TASKPUTH$ = "" Then
+			Set dbtask = ss.GetDatabase(ss.CurrentDatabase.Server , StrLeftBack(ss.CurrentDatabase.FilePath,"\")+"\TASK.NSF")
+	Else
+			Set dbtask = ss.GetDatabase(ss.CurrentDatabase.Server , TASKPUTH$)
+	End If
+'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	If Not ws.CurrentView Is Nothing Then
+		Set curdoc = curdb.UnprocessedDocuments.GetFirstDocument
+		If curdoc Is Nothing Then MsgBox "Выберите документ" : Exit Sub
+'		If curdoc.GetItemValue(CurrFormDoc(curdb)(2))(0) ="" Then MsgBox "Документ не зарегистрирован" : Exit Sub
+	Else
+		Set curdoc=ws.CurrentDocument.document
+	End If
+	If curdoc.IsNewNote Then
+		If MessageBox ( "Для создания поручения необходимо сохранить текущий документ! Сохранить?"  , 4 + 32 + 256 + 0  , "Сохранить!" ) = 6 Then
+			Call curdoc.Save(True,True)
+		Else
+			MsgBox "продолжение не возможно..."
+			Exit Sub
+		End If
+	End If
+'	If Not (curdoc.Form(0) = CurrFormDoc(curdb)(0) Or curdoc.Form(0) = "task") Then MsgBox "Выберите документ или задачу" : Exit Sub
+'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	unid$ = curdb.ReplicaID + "%" + curdoc.UniversalID
+	Set doc = dbTask.CreateDocument
+	doc.Form = "task"
+	doc.ParKanz = curdoc.ParKanz(0)
+	doc.TaskType = TaskType$
+	doc.ParDocUnid = curdoc.UniversalID
+	If TaskType$="2" Then doc.Control=""
+	doc.Info = curdoc.Info(0)
+	doc.From = curdoc.FromPerson(0)
+	doc.FromOrg = curdoc.FromOrg(0)
+	doc.FromЕmail = curdoc.FromЕmail(0)
+	doc.FromTel = curdoc.FromTel(0)
+	doc.PARDOCUNIDIMAGE = unid$
+	doc.ParDocNumber = curdoc.GetItemValue(CurrFormDoc(curdb)(2) )
+	doc.qSigner = curdoc.qSigner(0)
+	doc.PARDOCDB = curdb.ReplicaID + "%" + curdb.FilePath + "%" + curdb.Title
+	doc.ParDocDate = curdoc.Date(0)	
+	doc.Date_create = Now()
+	If curdoc.Hasitem("qGroup") Then
+		If curdoc.qGroup(0) <> "" Then
+			doc.qGroup = curdoc.qGroup
+		End If
+	End If 
+'%REM '(_/_)	
+	If curdoc.Form(0) <> "memos" Then 
+		fname1 = "To"
+		fname2 = "ToInfo"
+	Else
+		fname1 = "To_1"
+		fname2 = "ToInfo_1"
+	End If
+	If doc.Form(0) <> "DocIn" Then 
+'		If curdoc.HasItem("AdresatsTmp") Then doc.AdresatsTmp = curdoc.AdresatsTmp
+		If curdoc.HasItem("ExecutorAddr") Then 	doc.ExecutorAddr_1TMP = curdoc.ExecutorAddr
+'		If curdoc.HasItem("fname1") Then 	doc.ExecutorTMP = curdoc.GetItemValue(fname1)
+		If curdoc.HasItem("AdresatsTmp") Then doc.ExecutorTMP = curdoc.AdresatsTmp
+'		If curdoc.HasItem("fname2") Then 	doc.ExecutorInfoTMP = curdoc.GetItemValue(fname2)
+'		If curdoc.HasItem("Executor") Then 	doc.Executor_3TMP = Arrayunique(curdoc.Executor)
+'		If curdoc.HasItem("Executor") Then 	doc.Executor_1TMP = curdoc.Executor 
+'		If curdoc.HasItem("ExecutorInfo") Then 	doc.ExecutorInfo_1TMP =	curdoc.ExecutorInfo
+'		If curdoc.HasItem("ToInfo") Then 	doc.FromTmp = Strtoken(curdoc.ToInfo(0),"!",1) + "%" + Strtoken(curdoc.ToInfo(0),"!",2)
+	End If
+'(_/_)	
+'%%%%%%%%ПРОПИШЕМ ДОСТУП%%%%%2011.02.14 Vitaly%%%
+	Dim EditAccess As DocumentAccess2
+	If EditAccess Is Nothing Then 	Set EditAccess = New DocumentAccess2( curdoc, "Editors", "AuthorNames" )
+	Dim EditAccess2 As DocumentAccess2	
+	Set EditAccess2 = New DocumentAccess2( doc, "Editors", "AuthorNames" )	
+	Dim ReadAccess2 As DocumentAccess2
+'	Dim ReadAccess As DocumentAccess2
+'	If ReadAccess Is Nothing Then Set ReadAccess = New DocumentAccess2( curdoc, "Readers", "ReaderNames" )
+	If ReadAccess2 Is Nothing Then Set ReadAccess2 = New DocumentAccess2( doc, "Readers", "ReaderNames" )
+'	res = ReadAccess.Employees	
+'	For ii = 0 To Ubound(res)
+'		Call ReadAccess2.AddEmployeeLine( res(ii), False)
+'	Next
+If curdoc.Editors(0) <> "" Then
+	res = EditAccess.Employees
+		For ii = 0 To UBound(res)
+		Call ReadAccess2.AddEmployeeLine( res(ii), False) '2011.02.14 Vitaly
+'		Call EditAccess2.AddEmployeeLine( res(ii), False)
+	Next
+	End If
+	Call ReadAccess2.AddEmployeeLine( curdoc.ToInfo(0), False) '2013.02.27 Vitaly
+	Call EditAccess2.addauthor
+	Call EditAccess2.SetAccess
+	Call ReadAccess2.SetAccess
+'_________________________________________	
+	Dim it1 As NotesItem
+	Set it1 = doc.GetFirstItem("AuthorNames")
+	it1.IsAuthors = True
+'	Set it1 = doc.GetFirstItem("ReaderNames")
+'	it1.IsReaders = True
+	Set it1 = doc.ReplaceItemValue("AuthorNames_Rep",FromMain(curdb,"servgroup"))
+	Call it1.AppendToTextList("Servers_PKC")
+	Call it1.AppendToTextList("Cluster_Strong")
+	it1.IsAuthors = True
+'-----------------------------------------------------------
+	doc.IDstatus = "0"
+	doc.Status = "На подготовке"
+	doc.TypeSend = "Внутри офиса"
+'	If curdoc.Form(0) = CurrFormDoc(curdb)(0) Then
+	If curdoc.TaskType(0) <> "" Then qq$ = curdoc.TaskType(0) + " " Else qq$ =  ""
+	If curdoc.TypeLin(0) <> "" Then qq2$ = curdoc.TypeLin(0) + " " Else qq2$ =  ""
+	doc.docsLink =  qq$ + qq2$  + curdoc.Info(0)+ " Рег № " + curdoc.GetItemValue(CurrFormDoc(curdb)(2))(0)+ " от " + CStr(curdoc.Date(0))
+'	End If
+	doc.ExternalNumber = curdoc.ExternalNumber(0)
+	doc.TypeLin = curdoc.TypeLin(0)
+	doc.Date = curdoc.Date(0)
+	Call ws.EditDocument(True,doc)
+	
+	Exit Sub	
+ErrHnd:  
+	Call errh(" MakeTask ")
+End Sub
+
+'++LotusScript Development Environment:2:2:queryOpenImageForRead:1:8
+Sub queryOpenImageForRead(Cont)
+	On Error GoTo ErrHnd	
+	
+	Dim ws As New NotesUIWorkspace, dc As NotesDocumentCollection, doc As NotesDocument, imagedoc As NotesDocument,  pardoc As NotesDocument
+	Dim curdb As NotesDatabase, ss As New NotesSession, curdoc As NotesDocument, TempDir$, lastdir$, patch$, qwert As Variant, formname$
+	Dim patch2$, result&, exe$, res As Variant, patchOLD$, newpatch, fileName$, res1 As Variant, res2 As Variant
+	Set dc = ws.CurrentView.Documents
+	If dc.Count <> 1 Then MsgBox "Выбирите один документ!" : Exit Sub
+	Set doc = dc.GetFirstDocument
+	If InStr(ss.Platform,"Windows") = 0 Then
+		doc.From = "fimageNONEwind"
+		Call ws.Editdocument(, doc, , , , )  
+		Cont = False
+		Exit Sub
+	Else
+'(_/_)	'		
+	Dim pb As New LNProgressbar( True )
+	Call pb.SetProgressRange ( 4 )
+	Call pb.SetProgressPos( 1 )
+	Call pb.SetText( "Подождите... Данные загружаются с сервера!", "" )
+'(_/_)	'	
+	End If
+	If doc.Form(0) = "link" Then Cont = True : Exit Sub 
+	If doc.Form(0) = "comment" Then 	
+		Call ws.DialogBox( doc.Form(0) , True , True , True , False , True , True,  "Просмотр", doc , True , False , False ) 
+		Cont = False
+		Exit Sub
+	End If
+	If doc.Form(0) <> "fimage" Then	Cont = True : Exit Sub
+	Cont = False	
+	Dim rtitem As NotesRichTextItem	
+	Dim object As NotesEmbeddedObject
+	Set rtitem = doc.GetFirstItem("Body" )	
+	If Not doc.HasItem("Body") Then Set rtitem = doc.GetFirstItem("Document" )	
+	TempDir$ = Environ("Temp")			
+	lastdir$ = ss.GetEnvironmentString("lastdir")
+	patch$ = TempDir$+"\" + rtitem.EmbeddedObjects(0).Source
+'	Call pb.SetProgressPos( 4 )
+'	Delete pb 	'(_/_)	'		
+	If InStr(ss.Platform,"Windows") = 0 Then ' то черз launch first ole и будут лишние клики, 
+' то же самое, если не найдено зарегистрированное приложение!!!!!!!!!!
+otherteam:
+		Call ws.DialogBox( "fimageNONEwind" , True , True , False , False , False , False,  "Работа с вложением " + StrRight(patch$,"\") , doc , False , False , False ) 
+		Exit Sub
+	End If
+nochmal:
+	Dim tmp As NotesDocument
+	Set tmp = ss.CurrentDatabase.CreateDocument 
+	tmp.NewFName = rtitem.EmbeddedObjects(0).Source
+	tmp.type = "Открыть"
+'	res1 = Evaluate({@contains(DefaultEditors;"[CanEditAllDocs]")},doc)
+'	res2 = Evaluate({@contains(@UserRoles;"[CanEditAllDocs]")})
+'	If (Isnull( Arraygetindex(doc.AuthorNames, ss.UserName) ) And Not (res1(0)=1 And res2(0)=1) ) Or doc.SZak(0) <> "" Then 
+	formname$ = "dlgfileRead" 
+'	Else
+'		formname$ = "dlgfile"
+'	End If
+	If ws.DialogBox(formname$, True , True , False , False , False , False,  "Работа с вложением " + StrRight(patch$,"\") , tmp, False , False , False ) Then
+		Call rtitem.EmbeddedObjects(0).ExtractFile( patch$ )
+		Select Case tmp.type(0)
+		Case "Удалить": 
+			If tmp.del(0) = "Подтвердите удаление" Then
+				Call doc.RemoveItem("Body")		 ' пустой образ пропадет из view и ночной агент его потом удалит
+				Call doc.Save(True,True)
+				Kill patch$ 
+			End If
+		Case "Переименовать": 
+			If tmp.NewFName(0) = "" Then MsgBox "Введите новое имя файла!" : GoTo nochmal
+			Kill patch$ 
+			patch2$ = TempDir$+"\" +tmp.NewFName(0)			
+			Call rtitem.EmbeddedObjects(0).ExtractFile( patch2$ )
+			Call doc.RemoveItem("Body")		
+			doc.InView = tmp.NewFName(0)
+			Set rtitem = New NotesRichTextItem(doc,"Body")
+			Set object = rtitem.EmbedObject( EMBED_ATTACHMENT, "", patch2$) ' TempDir$+"\" & typ$+o.Source)		
+			rtitem.Update		
+			Call doc.Save(True,True)
+			Kill patch2$ 				
+		Case "Открыть":
+			result& = ShellExecute(0, "open", patch$, "", "", SW_SHOW)
+			If result& = 31 Then
+				Call  fOpenDocAndWait(patch$,0)
+			Else
+				exe$ = Space$(256)
+				result& = FindExecutable(fileName$, "", exe$)
+				exe$ = Left$(exe$, InStr(exe$, Chr(0)) - 1)
+			End If
+		Case "Сохранить на диск":			
+			newpatch = ws.SaveFileDialog( False , "Укажите путь для сохранения на диск" , ,StrRightBack(rtitem.EmbeddedObjects(0).Source,".")  ,rtitem.EmbeddedObjects(0).Source  )
+			If IsEmpty(newpatch) Then Exit Sub ' Msgbox "ничего не выбрано..." :
+'			If newpatch(0) = "" Then Msgbox "Введите имя файла!" : Goto nochmal
+			Call rtitem.EmbeddedObjects(0).ExtractFile( newpatch(0) )
+			res = Evaluate(|@FileDir("|+ Replace(newpatch(0) ,"\","\\") + |")|,curdoc)	
+			lastdir$ = res(0)
+			Call ss.SetEnvironmentVar("lastdir",lastdir$)
+		Case "Изменить":
+'			patchOLD$ = patch$
+			patchOLD$ = TempDir$+"\" + rtitem.EmbeddedObjects(0).Source
+			patch$ = TempDir$+"\" + Replace(Replace(Replace(CStr(Now())," ","_"),".",""),":","_") + "." + StrRightBack(rtitem.EmbeddedObjects(0).Source,".") ' TempDir$+"\" & o.Source
+			FileCopy patchOLD$  , patch$ ' переименование, потому что со спец. символами проблема
+			Select Case fOpenDocAndWait(patch$,0)
+			Case 17 : GoTo otherteam ' Msgbox "Can't perform requested operation"
+			Case 53 : MsgBox "File not found"
+			Case 0 :
+				Kill patchOLD$ 	
+				FileCopy  patch$, patchOLD$
+				Call doc.RemoveItem("Body")		
+				Set rtitem = New NotesRichTextItem(doc,"Body")
+				Set object = rtitem.EmbedObject( EMBED_ATTACHMENT, "", patchOLD$) ' TempDir$+"\" & typ$+o.Source)		
+				rtitem.Update		
+				Call doc.Save(True,True)
+				Kill patch$ 		
+				Kill patchOLD$ 	
+				MsgBox "Вложение изменено"
+			End Select
+			
+		End Select
+		Call ws.ViewRefresh
+	End If ' первый диалогбокс
+	Cont = False
+	Exit Sub
+ErrHnd:  
+	MsgBox 	CStr(Err) + " " + Error$ + " строка: " + CStr(Erl)
+	Call errh(" queryOpenImageForRead  " + ws.CurrentView.ViewName)
+End Sub
+
+'++LotusScript Development Environment:2:2:fimageDown:1:8
+Sub fimageDown()
+	On Error GoTo ErrHnd	
+	Dim ss As New NotesSession, col As NotesDocumentCollection, doc As NotesDocument, ws As New NotesUIWorkspace, view As NotesView, tmp As NotesDocument
+	Dim tmp2 As NotesDocument, qflag As Boolean, nextdoc As NotesDocument, jj As Long, entry As NotesViewEntry, vc As NotesViewEntryCollection
+	Dim nav As NotesViewNavigator, nextentry As NotesViewEntry, curnid$, tmpnid$, vname$
+	vname$ = ws.Currentview.Viewname
+	Set view = ss.Currentdatabase.Getview(vname$)
+	curnid$ = ws.Currentview.Caretnoteid
+	view.AutoUpdate = False
+	Set doc = ss.Currentdatabase.Getdocumentbyid(curnid$ )
+	If doc Is Nothing Then GoTo qnichts
+	If Not(doc.Form(0) = "fimage" Or doc.Form(0) = "link" Or doc.Form(0) = "comment") Then GoTo qnichts	
+	Set nav = view.CreateViewNavFromCategory(doc.imagedocUnid(0))
+	Set entry = nav.GetFirstDocument
+
+	While Not entry Is Nothing
+		Set tmp = entry.Document
+		tmpnid$ = tmp.Noteid
+		If Not tmp.Hasitem("numb") Then
+			Call tmp.Replaceitemvalue("numb", CInt(StrRight(entry.Getposition(".") , ".")))
+			Call tmp.Save(True,True)
+		End If
+		If tmpnid$ = curnid$ Then
+			If tmp.numb(0) = view.Getalldocumentsbykey(doc.imagedocUnid(0),True).Count Then 	MsgBox "Позиция вложения уже установлена последней" : Exit Sub
+			tmp.numb = CInt(tmp.numb(0) + 1)
+ 			Set nextentry = nav.Getnext(entry) ' .Getprev(entry)
+			Set nextdoc = nextentry.Document	
+			Call tmp.Save(True,True)
+			If Not nextdoc Is Nothing Then
+				If Not nextdoc.Hasitem("numb") Then 
+					nextdoc.numb = CInt(StrRight(nextentry.Getposition(".") , ".") - 1)
+				Else
+					nextdoc.numb = CInt(nextdoc.numb(0) - 1)
+				End If
+				Call nextdoc.Save(True,True)
+			End If
+		End If
+		Set entry = nav.Getnext(entry)
+	Wend
+	Call ws.Viewrefreshbydbid(ss.Currentdatabase.replicaid, vname$)
+	Call ws.Currentview.SelectDocument( doc )
+	Exit Sub
+		qnichts: 	MsgBox "Выбирите одну строку с вложением" 
+	Exit Sub
+ErrHnd:  
+'MsgBox CStr(Erl) + ": " + CStr(Err) + " " + CStr(Error) 	
+	Call errh(" fimageDown " )
+End Sub
+
+'++LotusScript Development Environment:2:1:GetCount:1:8
+Function GetCount(elementType As Integer) As Integer
+	On Error Goto ErrHnd
+	GetCount = 0
+	If rtnav.FindFirstElement(elementType) Then
+		Do
+'			Set rtlink = rtnav.GetElement
+'			Msgbox  rtlink.DisplayComment & Chr(13)
+'			Msgbox 			rtlink.HotSpotText
+			GetCount = GetCount + 1
+		Loop While rtnav.FindNextElement(elementType)
+	End If
+	
+	Exit Function
+ErrHnd:
+	Call errh(" Function GetCount ")
+End Function
+
+'++LotusScript Development Environment:2:2:EqualAcces:1:8
+Sub EqualAcces(curdoc,unid) ' пропишет в найденный образ в ридеры  екзекуторов из ткущей задачи, в которой нажали кнопку "отправить"
+	On Error Goto ErrHnd	
+	Dim ss As New NotesSession
+	Dim imagedoccol As NotesDocumentCollection
+	Dim imagedoc As NotesDocument
+	Dim pardoc As NotesDocument
+	Dim curdb As notesdatabase
+	Set linkDb = ss.GetDatabase(ss.CurrentDatabase.Server,Strleft(ss.CurrentDatabase.FilePath,"\") + "\TASK.NSF" )
+'	Set imagedoccol = ss.CurrentDatabase.GetView("(vimage)").GetAllDocumentsByKey(unid,True)
+	Set imagedoccol = linkDb.GetView("(vimage)").GetAllDocumentsByKey(unid,True)
+	Set imagedoc = imagedoccol.GetFirstDocument
+	While Not imagedoc Is Nothing
+		qwe = Evaluate({@Unique(EXECUTORADDR:@Name([CANONICALIZE];EXECUTORADDR_1))},curdoc)	
+		imagedoc.SZak = ss.UserName
+		res = Arrayunique(Arrayappend( qwe, imagedoc.ReaderNames ) )
+		Set it1 = imagedoc.ReplaceItemValue("ReaderNames",res	)	
+		it1.IsReaders = True			
+		Call imagedoc.Save(True,True)
+		Set imagedoc = imagedoccol.GetNextDocument(imagedoc)
+	Wend
+	
+'	Set it1 = imagedoc.ReplaceItemValue("Readers",curdoc.Readers)
+	
+	Exit Sub
+ErrHnd:  
+	Call errh(" EqualAcces uinid= " + curdoc.universalID)
+End Sub
+
+'++LotusScript Development Environment:2:2:BookmarkSend:1:8
+Sub BookmarkSend(db1 As NotesDatabase,curdoc,numbField,dateField,MailList,contr,InheritedSubject) ' отправка оффициозного письма
+	On Error Goto ErrHnd	
+	On Error 4000 Goto q4000
+	On Error 4294 Goto q4000
+	On Error 4295 Goto q4000
+	Dim values As Variant
+	Redim values(0 To 0)	
+	If Not Isarray( MailList ) Then 
+'		values(0) = MailList 
+		qIsarray = False
+	Else
+'		values = MailList	
+		qIsarray = True
+	End If
+	Select Case curdoc.TaskType(0)
+	Case   "1" : tmpSubject = "Поручение" 
+		tmpFlowStatus = "Пожалуйста, примите к исполнению документ"
+	Case   "2" : tmpSubject = "Рассылка" 
+		tmpFlowStatus = "Пожалуйста, ознакомьтесь с документом"
+	Case   "0" : tmpSubject = "Резолюция"  
+		tmpFlowStatus = "Пожалуйста, ознакомьтесь с документом"		
+	End Select
+	If contr Then tmpFlowStatus = "Пожалуйста, примите на контроль данный документ"
+	If  InheritedSubject = "отменено: "  Then tmpFlowStatus = "отменено"
+	If  InheritedSubject = "исполнено: "  Then tmpFlowStatus = "исполнено"
+	If InheritedSubject = "на доработке" Then tmpFlowStatus = "Пожалуйста, примите на доработку данный документ"
+	If InheritedSubject = "Делегировано: " Then tmpFlowStatus = "Вам делегирован документ"
+	If curdoc.GetItemValue(numbField)(0) <> "" Then tmpSubject2 = "Рег № " + curdoc.GetItemValue(numbField)(0) Else tmpSubject2 = ""
+	If Cstr(curdoc.GetItemValue(dateField)(0)) <> "" Then tmpSubject2 =tmpSubject2 + " от " + Cstr(Datevalue(curdoc.GetItemValue(dateField)(0))) Else tmpSubject2 = ""
+	Dim 	maildoc As New NotesDocument(db1)
+	
+	Call maildoc.AppendItemValue("SendTo", MailList )
+	Set rtitem = New NotesRichTextItem(maildoc, "Body")
+	
+	DbTitle = db1.Title
+	maildoc.Subject = InheritedSubject + " " + tmpSubject + " из БД " + DbTitle + ": " + curdoc.Info(0) + ", " + tmpSubject2 
+'	If InheritedSubject<>"" Then tmpSubject = InheritedSubject + " " + tmpSubject 
+	maildoc.InheritedSubject = tmpSubject ' curdoc.docsLink(0)' currd.Info(0)
+	
+	maildoc.InheritedDbTitle = DbTitle
+	maildoc.FlowStatus = tmpFlowStatus
+	If curdoc.Control(0) = "1" Then
+		If Cstr(curdoc.ExecutionDate(0))<>"" Then maildoc.DueDateTime = curdoc.ExecutionDate(0)	
+	End If
+	maildoc.Form = "Bookmark"
+	
+	Call  rtitem.AppendDocLink(curdoc, "Ссылка на документ: " )
+	Call maildoc.Send (False)		
+	Exit Sub
+q4000:
+	If qIsarray Then MailList2 = Join(MailList) Else MailList2 = MailList
+	Msgbox "Уведомление для " + MailList2 + " отправлено не было!"
+	Resume Next
+	Exit Sub
+ErrHnd:  
+	Call errh(" BookmarkSend " )
+End Sub
+
+'++LotusScript Development Environment:2:2:ForwardMain:1:8
+Sub ForwardMain ' переслать по почте
+	On Error Goto ErrHnd
+	On Error 4000 Goto q4000
+	On Error 4294 Goto q4000
+	On Error 4295 Goto q4000
+	Dim ss As New notessession
+	Dim ws As New notesuiworkspace
+	Dim curdb As notesdatabase
+	Set curdb=ss.currentdatabase
+	Dim SN As New notesname(curdb.server)
+	Dim db As notesdatabase
+	Dim pardoc As notesdocument
+	Dim curdoc As notesdocument	
+	Dim tmp As notesdocument	
+	Dim nam As NotesName
+'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	
+	If Not ws.CurrentView Is Nothing Then
+		Set curdoc = curdb.UnprocessedDocuments.GetFirstDocument
+		If curdoc Is Nothing Then Msgbox "Выбирите документ" : Exit Sub
+	Else
+		Set curdoc=ws.CurrentDocument.document		
+	End If
+'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	
+	Set tmp = curdb.CreateDocument
+	If Not ws.DialogBox( "EmailForwardMain", True, True, False, False, False, False, "Пересылка по электронной почте с выбранным вложением", tmp,False, False,True ) Then Exit Sub 
+	If tmp.qTo(0) = "" Then Msgbox "Адресаты не выбраны..." : Exit Sub
+	
+'%%%%%%%	
+	Set view = curdb.GetView("(vimage)")
+	If Not curdoc.HasItem("TOTASK") Then
+		unidimg$ = curdoc.UniversalID
+	Else
+		unidimg$ = Strtoken(curdoc.PARDOCUNIDIMAGE(0),"%",2)
+	End If
+	Set colimage = view.GetAllDocumentsByKey(unidimg$)
+	If colimage.Count = 0 Then Msgbox "нет вложений в основном документе" ': Exit Sub
+'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	j = 0
+	Set pardoc = colimage.GetFirstDocument
+	While Not pardoc Is Nothing
+		Redim Preserve attach(0 To  j)
+		attach(j) = pardoc.InView(0) ' rtitem.EmbeddedObjects(0).Source
+		j = j + 1			
+		Set pardoc = colimage.GetNextDocument(pardoc)
+	Wend
+'%%%%%%%%%%%%%%%%%%%%
+'	If ImageAll Then
+'		res = attach
+'	Else
+	res = ws.Prompt( PROMPT_OKCANCELLISTMULT, "Файлы для отправки", "ВЫДЕЛЕННЫЕ СИНЕЙ СТРОКОЙ ФАЙЛЫ БУДУТ ОТПРАВЛЕНЫ!", attach, attach )
+	If Isempty(res) Then 
+		Msgbox "Вложения не выбраны" 
+		inf$ = ""
+	Else
+'(_/_)(_/_)(_/_)
+		Dim item As NotesItem
+		Dim rtitem2 As NotesRichTextItem
+		Set pardoc = colimage.GetFirstDocument
+		While Not pardoc Is Nothing
+			For jj = 0 To Ubound(res)
+				If res(jj) = pardoc.InView(0) Then 
+					Set item = pardoc.GetFirstItem( "Body" )
+					If pardoc.Form(0) <> "fimage" Then
+						Set rtitem2 = tmp.GetFirstItem( "Body" )
+						Stop
+						Call rtitem2.AppendText(Chr(13)   + Chr(10)  + pardoc.GetFirstItem("Body").text  +  Chr(13)   + Chr(10))	
+					Else
+						Call tmp.CopyItem( item, "Body" )						
+					End If
+'				If bodyFooter$ <> "" Then Call rtitem2.appendtext(Chr$(10) + Chr(13)   + Chr$(10) + Chr(13)+bodyFooter$) 
+				End If ' 	If res(jj) = pardoc.InView
+			Next
+			Set pardoc = colimage.GetNextDocument(pardoc)
+		Wend
+		If Join(res) <> "" Then inf$ = " с вложением: "  + Join(res)
+	End If
+'(_/_)(_/_)(_/_)
+	tmp.Form = "memo"
+	Set rtitem2 = New NotesRichTextItem( tmp, "Body" )	
+	bodytitle$ = "Рассылка документа: " + Chr$(10) + Chr(13)+curdoc.TypeLin(0) + " Рег. № " + curdoc.GetItemValue(CurrFormDoc(curdb)(2))(0) + " от " + Cstr(curdoc.Date(0))+ Chr$(10) + Chr(13) + curdoc.Info(0)	
+	Call rtitem2.appendtext(bodytitle$ + Chr$(10) + Chr(13))
+	tmp.Form = "Memo"
+	tmp.From = Strright(Strleft(ss.UserName,"/"),"=")
+	tmp.sendto = tmp.qTo
+	tmp.subject = "Рассылка документа: " + curdoc.GetItemValue(CurrFormDoc(curdb)(2))(0) + " от " + Cstr(curdoc.Date(0)) + " " + curdoc.Info(0)
+'(_/_)(_/_)(_/_)	
+'	Set doclog = curdoc.CopyToDatabase( curdb )
+	Set dbTask = ss.GetDatabase(curdb.Server, Strleft(curdb.FilePath,"\")+"\task.nsf" )
+	Set doclog = dbTask.CreateDocument
+	doclog.Form = "task"
+	doclog.TOTASK = "Рассылка"
+	doclog.TaskType = "Рассылка"
+'	If Join(res) <> "" Then inf$ = " с вложением: "  + Join(res) Else inf$ = ""
+	doclog.Info = Datevalue(Cstr(Now())) + " отправлено на email " + inf$
+	doclog.Status = "отправлено на email"
+	doclog.IDstatus="0"
+	doclog.SZak = ss.UserName
+'	doc.PARDOCDB = curdb.ReplicaID + "%" + curdb.FilePath + "%" + curdb.Title
+'	doc.ParDocNumber = curdoc.GetItemValue(CurrFormDoc(curdb)(2) )
+'	doc.ParDocDate = curdoc.Date(0)	
+	doclog.ParDocUnid = curdoc.UniversalID
+'	doclog.ParDocUnidImage = curdoc.ParDocUnidImage(0)
+	doclog.TypeSend = "по email"
+	doclog.Executor = curdoc.qTo
+'	Call doclog.MakeResponse( curdoc )	
+	Call doclog.Save(True,True)
+'(_/_)(_/_)(_/_)		
+	Call tmp.Send(False) 
+	Msgbox "документ отправлен!!"
+'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%REM
+'	For i = 0 To Ubound(qTo)
+	subj$ = "Рассылка документа: " + curdoc.InternalNumber(0) + " от " + Cstr(curdoc.Date(0)) + " " + curdoc.Info(0)
+	body$ = "Рассылка документа: " + Chr$(10) + Chr(13)+curdoc.TypeLin(0) + " Рег. № " + curdoc.InternalNumber(0) + " от " + Cstr(curdoc.Date(0))+ Chr$(10) + Chr(13) + curdoc.Info(0)
+	foot$ = "Вложения:" + Chr$(10) + Chr(13)
+	If SendNoticeAt (curdoc, subj$	, body$, foot$, "","", qTo,res) Then Msgbox "Документ отправлен!"
+'	Next
+'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	
+	Call curdoc.ReplaceItemValue(f1,res)
+%END REM
+	Exit Sub
+q4000:
+	If curdoc.qTo Then MailList = Join(curdoc.qTo) Else MailList = curdoc.qTo(0)
+	Msgbox "Не найден адрес: " + MailList + "!! Уведомление отправлено не было!"
+	Exit Sub
+ErrHnd:
+	Call errh(" кнопка перенаправить -> ForwardMain ")
+End Sub

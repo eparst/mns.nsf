@@ -1,0 +1,1378 @@
+'++LotusScript Development Environment:2:5:(Options):0:74
+Option Public
+
+'++LotusScript Development Environment:2:5:(Forward):0:1
+Declare Private Type DocState
+Declare Sub CreateTmpItem
+Declare Sub RemoveTmpItem
+Declare Sub ReloadTmpItem
+Declare Sub GetStageFields
+Declare Sub SetStageFields
+Declare Function CheckAutoRun(i As Integer) As Integer
+Declare Function CheckAutoBackRun( i As Integer ) As Integer
+Declare Function AutomaticStage( i As Integer, j As Integer, m As Integer ) As Integer
+Declare Sub AutomaticBackStage( i As Integer )
+Declare Sub RusName( send_list As Variant )
+Declare Sub CreateSendList( SendRole As Variant, AddrList As Variant, doc As NotesDocument )
+Declare Sub PrepareAction( j As Integer )
+Declare Sub PrepareBackAction( j As Integer )
+Declare Sub WriteLog( RoleList As Variant, AddrList As Variant, Flag As String, log_doc As NotesItem )
+Declare Sub FindPeopleFromRoles( RolesName As String, AddrList As Variant )
+Declare Function IsMemberInRole (RoleNames As String) As Integer
+Declare Sub SetReminder( maildoc As NotesDocument, startDateTime As String )
+Declare Sub CheckAccessToStage( i As Integer )
+Declare Function DoAction As Integer
+Declare Sub AutomaticStagePrep ( i As Integer )
+Declare Sub AutomaticBackStagePrep ( i As Integer )
+Declare Sub WriteDocState( Target As Integer )
+Declare Sub ReadDocState( Source As Integer )
+Declare Sub SendMemo( NotesAddrList As Variant, RoleList As Variant, AddrList As Variant, Subject As String, Message As String, ReturnReceipt As Variant, DocType As String, Flag As String)
+
+'++LotusScript Development Environment:2:5:(Declarations):0:10
+Dim DocWasSaved As Integer
+Dim s As NotesSession
+Dim ws As NotesUIWorkspace
+Dim db As NotesDatabase
+Dim uidoc As NotesUIDocument
+Dim view As NotesView ' вид настройки
+Dim doc As NotesDocument ' документ настройки
+Dim curdoc As NotesDocument ' текущий документ
+Dim dialogdoc As NotesDocument ' документ-диалог для выбора этапа
+Dim stageitem As NotesItem
+Dim acl As NotesACL    
+Dim aclentry As NotesACLEntry  
+Dim typedoc As String
+Dim Control As String
+
+Dim newdoc As NotesDocument
+
+' Имя текущего пользователя
+Dim UserName As String
+
+' Базы данных сотрудников
+Dim dbf As NotesDatabase
+Dim dbk As NotesDatabase
+Dim viewf As NotesView
+Dim viewk As NotesView
+
+Dim Values_tmp() As Variant		' Временные значения полей
+'Dim ChangeStage As Variant		' Флаг смены этапа: False - не изменять этап, True - изменять этап
+'Dim FromDialog As Variant			' Флаг смены этапа через диалог: True - через диалог, False - автоматически
+Dim tunedoc As NotesDocument	' Документ настройки этапа
+' Переменные этапов
+Dim StageName As Variant			' Имя этапа
+Dim StageNameCur As Variant		' Имя текущего этапа
+Dim StageNamePrev As Variant	' Список выполненных этапов
+Dim StageNameRun As Variant	' Список этапов к выполнению
+Dim StageNameSendMemo As Variant	' Список этапов к рассылке
+Dim FromDialog As Variant			' Список типов этапов к выполнению (автомат, через диалог выбора)
+Dim StageNameRunBack As Variant	' Список этапов к возврату
+Dim StatusName As Variant			' Статус документа
+Dim initarr(0)							' Массив для инициализазии
+Dim TypeStage As String 			'Тип выбранного этапа (new - новый, old - старый, который раньше текущего)
+
+' Тип и временная переменная состояния документа
+Private Type DocState
+	StageName As Variant			' Имя этапа
+	StageNameCur As Variant		' Имя текущего этапа
+	StageNamePrev As Variant		' Список выполненных этапов
+	StageNameRun As Variant		' Список этапов к выполнению
+	StageNameRunBack As Variant	' Список этапов к возврату
+	StatusName As Variant			' Статус документа
+End Type
+Private TmpDocState As DocState
+
+' Переменные выполняемых действий
+Dim ActionTypes As Variant			' Флаг выполняемого действия
+Dim ActionParam1 As Variant		' 1-ый список параметров действия 
+Dim ActionParam2 As Variant		' 2-ой список параметров действия 
+' Списки рассылки
+'Dim SendList As Variant				' Список рассылки
+'Dim SendListRus As Variant		' Список рассылки порусски
+'Dim AcquaintList As Variant			' Список ознаколения
+'Dim AcquaintListRus As Variant	' Список ознаколения порусски
+' Массивы списков адресов
+Dim SendToList() As Variant			' Массив списков адресов для рассылки
+Dim AcToList() As Variant			' Массив списков адресов для ознакомления
+
+' Константы
+Const STAGES_VIEW = "StageByDocType"	' Представление с настройками этапов по типу документа
+Const WRNG_EMPTY_CONTROLLER = "Поле контролер не заполнено. Документ не будет сохранен."
+Const WRNG_EMPTY_CONTROLDATE = "Поле даты контроля не заполнено. Документ не будет сохранен."
+Const WRNG_SENDTO = "Не найдено ни одного человека для рассылки документа. Продолжить обработку документа?"
+Const WRNG_TITLE = "Предупреждение"
+Const RPT_TITLE = "Сообщение"
+Const DLG_NOSTAGE = "Для данного типа документа не найден документ настройки этапов обработки. Обратитесь к администратору системы."
+Const DLG_COMPLETE = "Документ полностью обработан!"
+Const DLG_TITLE = "Выбор этапа обработки"
+Const DLG_BEGIN = "Документ находиться на первом этапе!"
+
+Const SM_BODY_STAGE = ".  Документ находится на стадии: """
+Const SM_SUBJECT_SEND = "Для Вас имеется документ: """
+Const SM_SUBJECT_DB = """ в базе: """
+Const SM_SUBJECT_ACQUAINT = "Ознакомтесь с документом: """
+Const SM_BODY_SEND_1 = "Документ отправлен людям, входящим в роль: """
+Const SM_BODY_SEND_2 = "Документ отправлен людям: """
+Const SM_BODY_ACQUAINT_1 = "Для ознакомления документ отправлен людям, входящим в роль: """
+Const SM_BODY_ACQUAINT_2 = "Для ознакомления документ отправлен людям: """
+Const SM_DOC_REFERENCE = "Ссылка на документ: "
+Const WL_SEND = "Документ отправлен людям по выбору: """
+Const WL_ACQUAINT = "С документом ознакомлены люди по выбору: """
+Const WL_SENDAQUAINT = " и людям по выбору: "
+Const STAGE_RUN_1 = "Документ автоматичеки переведен на этап: "
+Const STAGE_RUN_2 = ". Все необходимые действия по нему будут автоматически выполнены при сохранении и закрытии документа."
+Const STAGE_RUN_3 = ". Действия по этапу выполняться не будут."
+Const STAGE_BACK_1 = "Документ автоматичеки возвращен на этап: "
+Const STAGE_BACK_2 = ". Все необходимые действия по нему будут автоматически выполнены при сохранении и закрытии документа."
+Const STAGE_BACK_3 = ". Действия по этапу выполняться не будут."
+Const LOG_AUTHOR = "Автор: "
+Const LOG_STAGE = "Стадия: """
+Const LOG_DATE = """  Дата: "
+Const LOG_BACK = "Возврат со стадии: """
+Const NOTFOUND = "не найден в настройках. Вероятно настройки были изменены. Перевести документ на начальный этап?"
+Const NOTFOUND1 = "Если Вы не уверены, ответьте ""Нет""(""No"") и обратитесь к администратору системы."
+
+
+'++LotusScript Development Environment:2:2:CreateTmpItem:1:8
+Sub CreateTmpItem
+	'Создаем временные поля для проверки изменения полей в документе
+	Dim Item As NotesItem
+	Dim Item_tmp As NotesItem
+	Dim count As Integer
+	
+	If Not( tunedoc Is Nothing ) Then
+		SFFN = tunedoc.StageFormulaFieldName
+		count = Ubound( tunedoc.StageName )
+		Redim Values_tmp(count)
+		
+		For i = 0 To count
+			If (tunedoc.StageFormulaFlag(i) = "2") Or (tunedoc.StageFormulaFlag(i) = "5") Then
+				If curdoc.HasItem( SFFN(i) ) Then
+					Set item = curdoc.GetFirstItem( SFFN(i) )
+					Values_tmp(i) = item.values
+				End If
+			End If
+		Next
+		
+	End If
+	
+End Sub
+
+'++LotusScript Development Environment:2:2:RemoveTmpItem:1:8
+Sub RemoveTmpItem
+	'Удаляем временные поля
+	Dim Item As NotesItem
+	
+	If Not tunedoc Is Nothing Then
+		SFFN = tunedoc.StageFormulaFieldName
+		
+		For i = 0 To Ubound( tunedoc.StageName )
+			If (tunedoc.StageFormulaFlag(i) = "2") Or (tunedoc.StageFormulaFlag(i) = "5")  Then
+				If curdoc.HasItem( SFFN(i) + "_tmp" ) Then
+					Call curdoc.RemoveItem( SFFN(i) + "_tmp" )
+				End If
+			End If
+		Next
+	End If
+	
+End Sub
+
+'++LotusScript Development Environment:2:2:ReloadTmpItem:1:8
+Sub ReloadTmpItem
+	
+	' Перепрописываем временные поля
+	Dim Item As NotesItem
+	Dim Item_tmp As NotesItem
+	Dim count As Integer
+	
+	If Not tunedoc Is Nothing Then
+		SFFN = tunedoc.StageFormulaFieldName
+		count = Ubound( tunedoc.StageName )
+		Redim Values_tmp(count)
+		
+		For i = 0 To count
+			If (tunedoc.StageFormulaFlag(i) = "2") Or (tunedoc.StageFormulaFlag(i) = "5")  Then
+				If curdoc.HasItem( SFFN(i) ) Then
+					Set item = curdoc.GetFirstItem( SFFN(i) )
+					Values_tmp(i) = item.values
+				End If
+			End If
+		Next
+	End If
+	
+End Sub
+
+
+
+'++LotusScript Development Environment:2:2:GetStageFields:1:8
+Sub GetStageFields
+	
+	' Записываем в переменные значения полей
+	StageName = curdoc.StageName
+	StageNameCur = curdoc.StageNameCur
+	StageNamePrev = curdoc.StageNamePrev
+	StageNameRun = curdoc.StageNameRun
+	StageNameRunBack = curdoc.StageNameRunBack
+	StatusName = curdoc.StatusName
+	
+End Sub
+
+'++LotusScript Development Environment:2:2:SetStageFields:1:8
+Sub SetStageFields
+	
+	' Записываем в поля значения переменных
+	curdoc.StageName = StageName
+	curdoc.StageNameCur = StageNameCur
+	curdoc.StageNamePrev = StageNamePrev
+	curdoc.StageNameRun = StageNameRun
+	curdoc.StageNameRunBack = StageNameRunBack
+	curdoc.StatusName = StatusName
+	
+End Sub
+
+'++LotusScript Development Environment:2:1:CheckAutoRun:1:8
+Function CheckAutoRun(i As Integer) As Integer
+	On Error Goto ExitSub
+	
+	'Проверяем условия автоматического начала этапа	
+	Select Case tunedoc.StageFormulaFlag(i)
+	Case "1"	' По формуле
+		SF$ = tunedoc.StageFormula(i)
+		If SF$ <> "-" Then
+			y = Evaluate( SF$, curdoc )
+			CheckAutoRun = y(0) = 1
+		End If
+		
+	Case "2"	' Если значение поля изменилось на
+		SFFN$ = tunedoc.StageFormulaFieldName(i)
+		SFAction$ = tunedoc.StageFormulaAction(i)
+		v = Values_tmp(i)
+		If SFFN$ <> "-" Then
+			Set item = curdoc.GetFirstItem( SFFN$ )
+			result = Evaluate( SFAction$, curdoc )
+			CheckAutoRun = ( item.values(0) = result(0) ) And ( item.values(0) <> v(0) )
+		End If
+		
+	Case "3"	' Если значени поля стало равно
+		SFFN$ = tunedoc.StageFormulaFieldName(i)
+		SFAction$ = tunedoc.StageFormulaAction(i)
+		If SFFN$ <> "-" Then
+			Set item = curdoc.GetFirstItem( SFFN$ )
+			result = Evaluate( SFAction$, curdoc )
+			CheckAutoRun = item.values(0) = result(0)
+		End If
+		
+	Case "4"	' Если значение стало не равно
+		SFFN$ = tunedoc.StageFormulaFieldName(i)
+		SFAction$ = tunedoc.StageFormulaAction(i)
+		If SFFN$ <> "-" Then
+			Set item = curdoc.GetFirstItem( SFFN$ )
+			result = Evaluate( SFAction$, curdoc )
+			CheckAutoRun = item.values(0) <> result(0)
+		End If
+		
+	Case "5"	' Если значение поля изменилось
+		SFFN$ = tunedoc.StageFormulaFieldName(i)
+		v = Values_tmp(i)
+		If SFFN$ <> "-" Then
+			Set item = curdoc.GetFirstItem( SFFN$ )
+			If Ubound(item.values) <> Ubound(v) Then
+				CheckAutoRun = True
+			Else
+				For j = 0 To Ubound(item.values)
+					CheckAutoRun = item.values(j) <> v(j) 
+				Next
+			End If
+		End If
+		
+	End Select
+	
+	Exit Function
+	
+ExitSub:
+	CheckAutoRun = False
+	Exit Function
+	
+'	If CheckAutoRun Then ChangeStage = True
+	
+End Function
+
+'++LotusScript Development Environment:2:1:CheckAutoBackRun:1:8
+Function CheckAutoBackRun( i As Integer ) As Integer
+	On Error Goto ExitSub
+	
+	' Проверяем условия автоматической отмены этапа	
+	Select Case tunedoc.StageFormulaFlag(i)
+	Case "1"	' По формуле
+		SF$ = tunedoc.StageFormula(i)
+		If SF$ <> "-" Then
+			y = Evaluate( SF$, curdoc )
+			CheckAutoBackRun = y(0) = 0
+		End If
+		
+	Case "2"	' Если значение поля изменилось
+		SFFN$ = tunedoc.StageFormulaFieldName(i)
+		SFAction$ = tunedoc.StageFormulaAction(i)
+		v = Values_tmp(i)
+		If SFFN$ <> "-" Then
+			Set item = curdoc.GetFirstItem( SFFN$ )
+			result = Evaluate( SFAction$, curdoc )
+			CheckAutoBackRun = ( item.values(0) <> result(0) ) And ( item.values(0) <> v(0) )
+		End If
+		
+	Case "3"	' Если значение поля стало равно
+		SFFN$ = tunedoc.StageFormulaFieldName(i)
+		SFAction$ = tunedoc.StageFormulaAction(i)
+		If SFFN$ <> "-" Then
+			Set item = curdoc.GetFirstItem( SFFN$ )
+			result = Evaluate( SFAction$, curdoc )
+			CheckAutoBackRun = item.values(0) <> result(0)
+		End If
+		
+	Case "4"	' Если значение поля стало не равно
+		SFFN$ = tunedoc.StageFormulaFieldName(i)
+		SFAction$ = tunedoc.StageFormulaAction(i)
+		If SFFN$ <> "-" Then
+			Set item = curdoc.GetFirstItem( SFFN$ )
+			result = Evaluate( SFAction$, curdoc )
+			CheckAutoBackRun = item.values(0) = result(0)
+		End If
+		
+	End Select
+	
+	Exit Function
+	
+ExitSub:
+	CheckAutoBackRun = False
+	Exit Function
+'	If CheckAutoBackRun Then ChangeStage = True
+	
+End Function
+
+'++LotusScript Development Environment:2:1:AutomaticStage:1:8
+Function AutomaticStage( i As Integer, j As Integer, m As Integer ) As Integer
+	' i - номер этапа в документе настройки
+	' j - номер этапа в массиве этапов к выполнению
+	' m - номер этапа в массиве этапов к отправке сообщений
+	
+	Dim log_doc As NotesItem
+	Dim roleview As NotesView
+	Dim roledoc As NotesDocument
+	Dim SendList As Variant				' Список рассылки
+	Dim AcquaintList As Variant			' Список ознаколения
+	
+	SendList = initarr
+	AcquaintList = initarr
+	
+	AutomaticStage = 0
+	Set view = db.GetView( "Stage" )
+	If Not view Is Nothing Then Set roledoc = view.GetDocumentbyKey("Roles Profile", True)
+	
+'	CStageName = StageNameCur
+'	CStageNamePrev = StageNamePrev
+	
+	' Составляем списки для рассылки уведомлений
+	If FromDialog(j) = "1" Then
+		If tunedoc.SendFlag(i) <> "0" Then Call CreateSendList( dialogdoc.Sends, SendList, dialogdoc )
+		If tunedoc.AcFlag(i) <> "0" Then Call CreateSendList( dialogdoc.Acs, AcquaintList, dialogdoc )
+		If dialogdoc.SendFlag(0) <> "0" Or dialogdoc.AcFlag(0) <> "0"  Then
+			If SendList(0) = "" And AcquaintList(0) = "" And dialogdoc.SendRecievers(0) = "" And dialogdoc.AcRecievers(0) = "" Then
+				mes = Msgbox( WRNG_SENDTO, 4 + 32, WRNG_TITLE )
+				If mes = 7 Then
+					'Возвращаем предыдущий этап
+					If TypeSrage = "new" Then
+						StageName = StageNamePrev(Ubound( StageNamePrev ))
+						StageNameCur = StageName
+					Else
+						StageName = curdoc.StageName(0)
+						StageNameCur = StageName
+					End If
+					'Убираем выбранный этап из списка к выполнению
+					If Ubound( StageNameRun ) = 0 Then
+						StageNameRun = initarr
+					Else
+						StageNameRun = Fulltrim( Arrayreplace( StageNameRun, StageNameRun(Ubound( StageNameRun )), "" ) )
+					End If
+					'Убираем предыдущий этап из выполненых
+					If TypeSrage = "new" Then
+						If Ubound( StageNamePrev ) = 0 Then
+							StageNamePrev = initarr
+						Else
+							StageNamePrev = Fulltrim( Arrayreplace( StageNamePrev, StageNamePrev(Ubound( StageNamePrev )), "" ) )
+						End If
+					End If
+					'Удаляем последнее значение списка флагов
+					If Ubound( FromDialog ) = 0 Then
+						FromDialog = initarr
+					Else
+						FromDialog = Fulltrim( Arrayreplace( FromDialog, FromDialog(Ubound( FromDialog )), "" ) )
+					End If
+					'Заполняем поля
+					Call SetStageFields
+					AutomaticStage = 1
+					Exit Function
+				End If
+			End If
+		End If
+	Else
+		Sends = Evaluate("@Explode(""" + tunedoc.SendRole(i) + """;"";"")")
+		Acs = Evaluate("@Explode(""" + tunedoc.AcRole(i) + """;"";"")")
+		If tunedoc.SendFlag(i) <> "0" Then Call CreateSendList( Sends, SendList, roledoc )
+		If tunedoc.AcFlag(i) <> "0" Then Call CreateSendList( Acs, AcquaintList, roledoc )
+	End If	
+	
+	' Выполнение действий при обработке документа
+	Call PrepareAction( i )
+	
+	' Заносим списки для рассылки уведомлений в массивы адресов
+	'рассылки
+	Redim Preserve SendToList(m) As Variant
+	If FromDialog(j) = "1" Then
+		If SendList(0) <> "" Or dialogdoc.SendRecievers(0) <> "" Then
+			v = SendList
+			v = Fulltrim( Arrayappend( v, dialogdoc.SendRecievers ) )
+			SendToList(m) = v
+		Else
+			v = initarr
+			v(0) = "-"
+			SendToList(m) = v
+		End If
+	Else
+		If SendList(0) <> "" Then
+			SendToList(m) = SendList
+		Else
+			v = initarr
+			v(0) = "-"
+			SendToList(m) = v
+		End If
+	End If
+	'уведомлений
+	Redim Preserve AcToList(m) As Variant
+	If FromDialog(j) = "1" Then
+		If AcquaintList(0) <> "" Or dialogdoc.AcRecievers(0) <> "" Then
+			v = AcquaintList
+			v = Fulltrim( Arrayappend( v, dialogdoc.AcRecievers ) )
+			AcToList(m) = v
+		Else
+			v = initarr
+			v(0) = "-"
+			AcToList(m) = v
+		End If
+	Else
+		If AcquaintList(0) <> "" Then
+			AcToList(m) = AcquaintList
+		Else
+			v = initarr
+			v(0) = "-"
+			AcToList(m) = v
+		End If
+	End If
+	
+	'Заполнение журнала обработки документа
+	If UserName = "" Then
+		user_name = Evaluate( "@V3UserName", curdoc )
+		Call RusName( user_name )
+		UserName = user_name(0)
+	End If
+	log_arr = curdoc.log_doc
+	log_arr = Arrayappend( log_arr, "   " )
+	log_arr = Arrayappend( log_arr, LOG_STAGE + tunedoc.StatusName(i) + LOG_DATE + Str( Now ) + "." )
+	log_arr = Arrayappend( log_arr, LOG_AUTHOR + UserName + "." )
+	
+	If FromDialog(j) = "1" Then
+		SendRole = dialogdoc.Sends							' роли рассылки
+		SendAddrList = dialogdoc.SendRecievers			' список адресатов для рассылки
+		AcRole = dialogdoc.Acs									' роли ознакомления
+		AcAddrList = dialogdoc.AcRecievers					' список адресатов для ознакомления
+	Else
+		SendRole = Evaluate("@Explode(""" + tunedoc.SendRole(i) + """;"";"")") 	' роли рассылки
+		AcRole = Evaluate("@Explode(""" + tunedoc.AcRole(i) + """;"";"")") 		' роли рассылки
+		SendAddrList = initarr
+		SendAddrList(0) = ""																		' список адресатов для рассылки
+		AcAddrList = initarr
+		AcAddrList(0) = ""																			' список адресатов для ознакомления
+	End If
+	
+	If SendList(0) = "" And SendAddrList(0) = "" And AcquaintList(0) = "" And AcAddrList(0) = "" Then
+		If tunedoc.WorkFlowFlag(i) <> "4" Then
+			curdoc.log_doc = log_arr	
+		End If
+	Else
+		curdoc.log_doc = log_arr
+		If SendList(0) <> "" Or SendAddrList(0) <> "" Then	Call WriteLog( SendRole, SendAddrList, "send", log_doc )
+		If AcquaintList(0) <> "" Or AcAddrList(0) <> "" Then Call WriteLog( AcRole, AcAddrList, "acquaint", log_doc )
+	End If
+	
+End Function
+
+
+'++LotusScript Development Environment:2:2:AutomaticBackStage:1:8
+Sub AutomaticBackStage( i As Integer )
+	
+	Dim prev As NotesItem
+	
+'	If Not FromDialog Then 
+'		Set dialogdoc = db.CreateDocument
+'		dialogdoc.StageList = ""
+'	End If
+	Call PrepareBackAction(i)
+	
+     'Заполнение журнала обработки документа
+	If tunedoc.StageName(i) = StageNameRunBack(Ubound( StageNameRunBack )) Then
+		If UserName = "" Then
+			user_name = Evaluate( "@V3UserName", curdoc )
+			Call RusName( user_name )
+			UserName = user_name(0)
+		End If
+		log_arr = curdoc.log_doc
+		log_arr = Arrayappend( log_arr, "   " )
+		log_arr = Arrayappend( log_arr, LOG_STAGE + StatusName(0) + LOG_DATE + Str(Now) + "." )
+		log_arr = Arrayappend( log_arr, LOG_BACK + tunedoc.StatusName(i) + """." )
+		log_arr = Arrayappend( log_arr, LOG_AUTHOR + UserName + "." )
+		curdoc.log_doc = log_arr
+	End If
+	
+End Sub
+
+'++LotusScript Development Environment:2:2:RusName:1:8
+Sub RusName( send_list As Variant )
+	
+	Dim docf As NotesDocument
+	Dim dock As NotesDocument
+	Dim arr() As String
+	Dim Count As Integer
+	
+	If Isarray( send_list ) Then
+		slist = send_list
+	Else
+		Redim arr(0)
+		slist = arr
+		slist(0) = send_list
+	End If
+	
+	Count = Ubound( slist )
+	If Count = 0 And slist(0) = "" Then Exit Sub
+	
+	' Фирмы
+	If viewf Is Nothing Then
+		Set dbf = New NotesDatabase( db.Server, Left( db.FilePath, Len( db.FilePath ) - Len( db.FileName ) ) + "firm.nsf" )
+		If dbf.IsOpen Then Set viewf = dbf.GetView( "ByNotesAddress" )
+	End If
+	
+	
+	
+	
+	' Формирование русскоязычного списка
+	Redim arr(Count) As String
+	
+	For i = 0 To Count
+		tmp = Evaluate( "@Name([Abbreviate];""" + slist(i) + """)", curdoc )
+		slist(i) = tmp(0)
+		Select Case curdoc.Source(0)
+		Case "0":
+			If Not viewf Is Nothing Then Set docf = viewf.GetDocumentByKey( slist(i), True )
+			If Not docf Is Nothing Then
+				arr(i) = docf.Caller(0)
+			Else
+				If Not viewk Is Nothing Then Set dock = viewk.GetDocumentByKey( slist(i), True )
+				If dock Is Nothing Then
+					tmp = Evaluate( "@Name([CN];""" + slist(i) + """)", curdoc )
+					arr(i) = tmp(0)
+				Else
+					arr(i) = dock.p1(0)
+				End If
+			End If	
+			
+		Case	Else
+			If Not viewk Is Nothing Then Set dock = viewk.GetDocumentByKey( slist(i), True )
+			If Not dock Is Nothing Then
+				arr(i) = dock.p1(0)
+			Else
+				If Not viewf Is Nothing Then Set docf = viewf.GetDocumentByKey( slist(i), True )
+				If docf Is Nothing Then
+					tmp = Evaluate("@Name([CN];""" + slist(i) + """)",curdoc)
+					arr(i) = tmp(0)
+				Else
+					arr(i) = docf.Caller(0)
+				End If
+			End If
+			
+		End Select
+		
+	Next	
+	
+	send_list = arr
+	
+End Sub
+
+'++LotusScript Development Environment:2:2:CreateSendList:1:8
+Sub CreateSendList( SendRole As Variant, AddrList As Variant, doc As NotesDocument )
+	' Преобразует русскоязычные названия ролей в англоязычные, которые указаны в диалоге.
+	
+	Dim vaddr As Variant
+	
+	' Создание списка рассылки
+	Set addrvalue = New NotesItem ( doc, "AddrValue", "" )
+	vaddr = doc.AddrValue
+	
+	For i = 0 To Ubound( SendRole )
+		result = Arraygetindex( doc.RolesName, SendRole(i) )
+		
+		If Not Isnull( result ) Then 
+			If doc.RolesType(result) = "2" Then
+				Call FindPeopleFromRoles( doc.RolesFormula(result), v )
+				vaddr = Arrayappend( vaddr, AddrList )
+				
+			Elseif doc.RolesType(result) = "1" Then
+				fieldlist = Evaluate( "@Explode(""" + doc.RolesFormula(result) + """;"","")", curdoc )
+				For k = 0 To Ubound( fieldlist )
+					v = curdoc.GetItemValue( fieldlist(k) )
+					vaddr = Arrayappend( vaddr, v )
+				Next
+				
+			Elseif doc.RolesType(result) = "3" Then
+				v = Evaluate( "@Explode(""" + doc.RolesFormula(result) + """;"","")", curdoc)
+				vaddr = Arrayappend( vaddr, v )
+			End If
+			
+		End If
+	Next
+	
+	doc.AddrValue = Fulltrim( vaddr )
+	AddrList = Evaluate( "@Name([Abbreviate];@Unique(AddrValue))", doc )
+	Call addrvalue.Remove
+	
+End Sub
+
+'++LotusScript Development Environment:2:2:PrepareAction:1:8
+Sub PrepareAction( j As Integer )
+	
+	Dim agent As NotesAgent
+	Dim fielditem As NotesItem
+	
+	If tunedoc.ActFlag(j) = "1" Then
+		y = Evaluate( tunedoc.ActAction(j), curdoc )
+		Set fielditem = curdoc.ReplaceItemValue( tunedoc.ActFieldName(j), y(0) )
+		fielditem.IsSummary = True
+		
+		If tunedoc.ActFieldName(j) = "FormName" Then
+			ActionTypes = Arrayappend( ActionTypes, 1 )
+			ActionParam1 = Arrayappend( ActionParam1, curdoc.FormName(0) )
+			ActionParam2 = Arrayappend( ActionParam2, "-" )
+			curdoc.FormName = ""
+		End If
+		
+	Elseif tunedoc.ActFlag(j) = "2" Then
+		RunAgent = False
+		
+		If tunedoc.ActSelRun(j) = "1" Then
+			RunAgent = True
+		Elseif tunedoc.ActSelRun(j) = "2" Then
+			y = Evaluate( tunedoc.ActFormulaRun(j), curdoc )
+			RunAgent = y(0) = 1
+		End If
+		
+		If RunAgent Then
+			If tunedoc.ActDialogBoxFlag(j) = "1" Then
+				
+				If tunedoc.ActFormDialogBoxName(0) <> "" Then
+					ActionTypes = Arrayappend( ActionTypes, 2 )
+					ActionParam1 = Arrayappend( ActionParam1, tunedoc.ActFormDialogBoxName(j) )
+					ActionParam2 = Arrayappend( ActionParam2, tunedoc.ActAgent(j) )
+				Else
+					ActionTypes = Arrayappend( ActionTypes, 3 )
+					ActionParam1 = Arrayappend( ActionParam1, "-" )
+					ActionParam2 = Arrayappend( ActionParam2, tunedoc.ActAgent(j) )
+				End If
+				
+			Else
+				ActionTypes = Arrayappend( ActionTypes, 3 )
+				ActionParam1 = Arrayappend( ActionParam1, "-" )
+				ActionParam2 = Arrayappend( ActionParam2, tunedoc.ActAgent(j) )
+			End If
+			
+		End If
+		
+	Elseif tunedoc.ActFlag(j) = "3" Then
+		' При отсутствии базы, выполнять формулу не надо!
+		If tunedoc.ActFormulaCreate(j) <> "" And tunedoc.ActFormulaCreate(j) <> "-" Then
+			result = Evaluate( tunedoc.ActFormulaCreate(j), curdoc )
+		End If
+		ActionTypes = Arrayappend( ActionTypes, 4 )
+		ActionParam1 = Arrayappend( ActionParam1, tunedoc.ActDBName(j) )
+		ActionParam2 = Arrayappend( ActionParam2, tunedoc.ActFormDocName(j) )
+		
+	Elseif tunedoc.ActFlag(j) = "4" Then	'<--- Новая процедура, вызывается в подпрограмме DoAction
+		' !!! Если необходимо изменить текущий документ, то эти изменения надо выполнить здесь.
+		ActionTypes = Arrayappend( ActionTypes, 5 )
+		ActionParam1 = Arrayappend( ActionParam1, "-" )
+		ActionParam2 = Arrayappend( ActionParam2, "-" )		
+		curdoc.FormName = ""
+	End If
+	
+End Sub
+
+'++LotusScript Development Environment:2:2:PrepareBackAction:1:8
+Sub PrepareBackAction( j As Integer )
+	
+	Dim agent As NotesAgent
+	Dim fielditem As NotesItem
+	
+	If tunedoc.StBackFlag(j) = "1" Then
+		y = Evaluate( tunedoc.StBackAction(j), curdoc )
+		Set fielditem = curdoc.ReplaceItemValue( tunedoc.StBackFieldName(j), y(0) )
+		fielditem.IsSummary = True
+		
+	Elseif tunedoc.StBackFlag(j) = "2" Then
+		RunAgent = False
+		If tunedoc.StBackSelRun(j) = "1" Then
+			RunAgent = True
+		Elseif tunedoc.StBackSelRun(j) = "2" Then
+			y = Evaluate( tunedoc.StBackFormulaRun(j), curdoc )
+			RunAgent = y(0) = 1
+		End If
+		
+		If RunAgent Then
+			If tunedoc.StBackDialogBoxFlag(j) = "1" Then
+				If tunedoc.StBackFormDialogBoxName(0) <> "" Then
+					ActionTypes = Arrayappend( ActionTypes, 2 )
+					ActionParam1 = Arrayappend( ActionParam1, tunedoc.StBackFormDialogBoxName(j) )
+					ActionParam2 = Arrayappend( ActionParam2, tunedoc.StBackAgent(j) )
+				Else
+					ActionTypes = Arrayappend( ActionTypes, 3 )
+					ActionParam1 = Arrayappend( ActionParam1, "-" )
+					ActionParam2 = Arrayappend( ActionParam2, tunedoc.StBackAgent(j) )
+				End If
+				
+			Else
+				ActionTypes = Arrayappend( ActionTypes, 3 )
+				ActionParam1 = Arrayappend( ActionParam1, "-" )
+				ActionParam2 = Arrayappend( ActionParam2, tunedoc.StBackAgent(j) )
+				
+			End If
+		End If
+		
+	Elseif tunedoc.StBackFlag(j) = "3" Then
+		' При отсутствии базы, выполнять формулу не надо!
+		If tunedoc.StBackFormulaCreate(j) <> "" And tunedoc.StBackFormulaCreate(j) <> "-" Then
+			result = Evaluate( tunedoc.StBackFormulaCreate(j), curdoc )
+		End If
+		ActionTypes = Arrayappend( ActionTypes, 4 )
+		ActionParam1 = Arrayappend( ActionParam1, tunedoc.StBackDBName(j) )
+		ActionParam2 = Arrayappend( ActionParam2, tunedoc.StBackFormDocName(j) )
+		
+	End If
+	
+End Sub
+
+'++LotusScript Development Environment:2:2:WriteLog:1:8
+Sub WriteLog( RoleList As Variant, AddrList As Variant, Flag As String, log_doc As NotesItem )
+	
+	If Flag = "send" Then
+		st1 = SM_BODY_SEND_1
+		st2 = WL_SEND
+		
+	Elseif Flag = "acquaint" Then	
+		st1 = SM_BODY_ACQUAINT_1
+		st2 = WL_ACQUAINT
+	End If
+	
+	log_arr = curdoc.log_doc
+	
+	'Формируем запись в журнале
+	Set tmpdoc = db.CreateDocument
+	tmpdoc.Sends = RoleList
+	Call RusName(AddrList)
+	tmpdoc.SendMailList = AddrList
+	send_role = Evaluate( "@Implode(Sends;"","")", tmpdoc)
+	send_list = Evaluate( "@Implode(SendMailList;"","")", tmpdoc )
+	If send_role(0) <> "" And send_list(0) <> "" Then
+		log_arr = Arrayappend( log_arr, st1 + send_role(0) + """" )
+		log_arr = Arrayappend( log_arr, WL_SENDAQUAINT + send_list(0) + """")
+	Elseif send_role(0) <> "" Then
+		log_arr = Arrayappend( log_arr, st1 + send_role(0) + """" )
+	Elseif send_list(0) <> "" Then
+		log_arr = Arrayappend( log_arr, st2 + send_list(0) + """" )
+	End If
+	
+	curdoc.log_doc = log_arr
+End Sub
+
+'++LotusScript Development Environment:2:2:FindPeopleFromRoles:1:8
+Sub FindPeopleFromRoles( RolesName As String, AddrList As Variant )
+	' Ищет и возвращает список пользователей, входящих в указанные в списке RolesName роли
+	
+	Dim acl As NotesACL
+	Dim aclentry As NotesACLEntry
+	Dim i As Integer
+	Dim names() As String
+	
+	Set acl = db.ACL    
+	i = 0
+	rolelist = Evaluate( "@Explode(""" + RolesName + """;"","")", tunedoc )
+	
+	For k=0 To Ubound(rolelist)
+		Set aclentry = acl.GetFirstEntry  
+		While Not aclentry Is Nothing
+			If ( aclentry.IsRoleEnabled( rolelist(k) ) = True ) Then
+				Redim Preserve names(i)
+				names(i) = aclentry.Name
+				i = i + 1
+			End If
+			Set aclentry = acl.GetNextEntry( aclentry ) 
+		Wend
+	Next
+	
+	AddrList = names
+	
+End Sub
+
+'++LotusScript Development Environment:2:1:IsMemberInRole:1:8
+Function IsMemberInRole (RoleNames As String) As Integer
+	
+	IsMemberInRole = False
+	q$ = "@Explode(""" + RoleNames + """; "";"")"
+	rolelist = Evaluate( q$ )
+	
+	For i =0 To Ubound(rolelist)
+		q$ = "@IsMember(""" +  rolelist(i) + """; @UserRoles )"
+		result = Evaluate( q$ )
+		If result(0) Then
+			IsMemberInRole = True
+		End If
+	Next
+	
+End Function
+
+'++LotusScript Development Environment:2:2:SetReminder:1:8
+Sub SetReminder( maildoc As NotesDocument, startDateTime As String )
+	
+	Dim views(1) As String
+	Dim window As NotesDateRange
+	Dim freeTime As Variant
+	Dim nn As NotesName
+	Dim dtStart As New NotesDateTime( startDateTime )
+	Dim dtNow As New NotesDateTime( "" )
+	
+	maildoc.Form = "Appointment"
+	Call maildoc.AppendItemValue( "AppointmentType", "4" )
+	Call maildoc.AppendItemValue( "Logo", "stdNotesLtr0" )
+	Call maildoc.AppendItemValue( "_ViewIcon", 41 )
+	Call maildoc.AppendItemValue( "$ExpandGroup", "3" )
+	Call maildoc.AppendItemValue( "OrgConfidential", "1" )
+	views(0) = "D"
+	views(1) = "S"
+	Call maildoc.AppendItemValue( "ExcludeFromView", views )
+	
+	' Дата и время
+	Set window = s.CreateDateRange()
+	If startDateTime = "" Then Call dtStart.SetNow
+	Call dtNow.SetNow
+	
+	If dtStart.TimeDifference( dtNow ) < 0 Then
+		' Текущие сутки
+		Set window.StartDateTime = New NotesDateTime( Format( Now, "dd/mm/yyyy hh:mm:ss" ) )
+		Set window.EndDateTime = New NotesDateTime( Format( Now, "dd/mm/yyyy hh:mm:ss" ) )
+	Else
+		' На последующие сутки
+		Set window.StartDateTime = New NotesDateTime( Format( dtStart.LocalTime, "dd/mm/yyyy hh:mm:ss" ) )
+		Set window.EndDateTime = New NotesDateTime( Format( dtStart.LocalTime, "dd/mm/yyyy hh:mm:ss" ) )
+	End If
+	
+	Call window.EndDateTime.AdjustHour( 12 )
+	Set nn = New NotesName( maildoc.SendTo(0) )
+	On Error 4000 Goto StopExec
+	freeTime = s.FreeTimeSearch( window, 5, nn.Common, False )
+	
+	If freeTime(0) Is Nothing Then
+		Call maildoc.AppendItemValue( "CalendarDateTime", Datevalue( Format( startDateTime, "dd/mm/yyyy " ) ) +_
+		Timevalue( Format( Now, "Long Time" ) ) )
+	Else
+		Call maildoc.AppendItemValue( "CalendarDateTime", freeTime(0).StartDateTime )
+	End If
+	
+	Call maildoc.AppendItemValue( "StartDate", maildoc.CalendarDateTime )
+	Call maildoc.AppendItemValue( "StartTime", maildoc.StartDate )
+	Call maildoc.AppendItemValue( "StartDateTime", maildoc.StartDate )
+	Exit Sub
+	
+StopExec:
+	Redim freeTime(0) As NotesDateRange
+	Set freeTime(0) = window
+	Resume Next
+	
+End Sub
+
+'++LotusScript Development Environment:2:2:CheckAccessToStage:1:8
+Sub CheckAccessToStage( i As Integer )
+	
+	On Error Goto ProcessError
+	
+	If tunedoc.AccessFlag(i) = "1" Then
+		Call stageitem.AppendToTextList( tunedoc.StageName(i) )
+		
+	Elseif tunedoc.AccessFlag(i) = "2" Then
+		If IsMemberInRole( tunedoc.AccessRole(i) ) Then
+			Call stageitem.AppendToTextList( tunedoc.StageName(i) )
+		End If
+		
+	Elseif tunedoc.AccessFlag(i) = "3" Then
+		result = Evaluate( tunedoc.AccessFormula(i), curdoc )
+		If result(0) Then
+			Call stageitem.AppendToTextList( tunedoc.StageName(i) )
+		End If
+		
+	Else
+		Call stageitem.AppendToTextList( tunedoc.StageName(i) )
+		
+	End If
+	
+EndSub:
+	Exit Sub
+	
+ProcessError:
+	Call stageitem.AppendToTextList( tunedoc.StageName(i) )
+	Resume EndSub
+	
+End Sub
+
+'++LotusScript Development Environment:2:1:DoAction:1:8
+Function DoAction As Integer
+	
+	Dim s As New NotesSession
+	Dim ws As New NotesUIWorkspace
+	Dim newdb As NotesDatabase
+	Dim agent As NotesAgent
+	Dim newuidoc As NotesUIDocument
+	Dim item As NotesRichTextItem
+	Dim i As Long
+	
+	DoAction = 0
+	
+	For i = 1 To Ubound( ActionTypes )
+		
+		Select Case ActionTypes(i)
+		Case 1	' OpenNewDoc, CreateWizaDoc
+			
+			If ActionParam1(i) = "" Then 
+				ActionParam1(i) = "1"
+				Goto NextAction
+			End If
+			
+			If ActionParam1(i) = "RespRespDoc" Then
+				Call s.SetEnvironmentVar( "TypeDoc", "RespExec" )
+				Call s.SetEnvironmentVar( "OriginalTypeDoc", curdoc.TypeDoc(0) )
+				Call s.SetEnvironmentVar( "MainTypeDoc", curdoc.TypeDoc(0) )
+				Set newuidoc = ws.ComposeDocument( "", "", ActionParam1(i) )
+				
+			Elseif ActionParam1(i) = "Document" Then
+				' База визирование
+				server = db.Server
+				DbName = db.FilePath
+				If Right( dbName, 3 ) = "nsf" Then
+					dbName = Mid( dbName, 1, Len( dbName ) - Len( db.FileName ) ) & "docum.nsf"
+				Elseif Right( dbName, 3 ) = "NSF" Then
+					dbName = Mid( dbName, 1, Len( dbName ) - Len( db.FileName ) ) & "DOCUM.NSF"
+				End If 
+				
+				Set newdb = New NotesDatabase( server, dbName )
+				If Not newdb.IsOpen Then
+					ActionParam1(i) = "1"
+					Goto NextAction
+				End If
+				
+				Call s.SetEnvironmentVar( "UID", curdoc.UniversalID )
+				Call s.SetEnvironmentVar( "Dbname", db.FilePath )
+				
+				Set newdoc = newdb.CreateDocument
+				newdoc.Form = FormName
+				newdoc.Info = curdoc.Info(0)
+				newdoc.TypDoc = curdoc.TypDoc(0)
+				Set rtitem = New NotesRichTextItem( newdoc, "Body" )
+				Call rtitem.AppendDocLink( curdoc, "" )
+				newdoc.DocumentAuthors = s.UserName
+				Set aitem = newdoc.GetFirstItem( "DocumentAuthors" )
+				aitem.IsAuthors = True
+				Call newdoc.Save( True, True )
+				Set newuidoc = ws.EditDocument( True, newdoc )
+			End If
+			
+		Case 2	' Запуск агента
+			curdoc.Agent = ActionParam2(i)
+			Call ws.DialogBox( ActionParam1(i), True, True, True, False, False, False, "Запуск агента" )
+			Call ws.CurrentDocument.Save
+			
+		Case 3	' Запуск агента
+			Set agent = db.GetAgent( ActionParam2(i) )
+			If Not agent Is Nothing Then Call agent.Run
+			Call ws.CurrentDocument.Save
+			
+		Case 4	' CreateNewDoc, StBackCreateNewDoc
+			server = db.Server
+			DbName = db.FilePath
+			If Right( dbName, 3 ) = "nsf" Then
+				dbName = Mid( dbName, 1, Len( dbName ) - Len( db.FileName ) ) & Lcase( ActionParam1(i) )
+			Elseif Right( dbName, 3 ) = "NSF" Then
+				dbName = Mid( dbName, 1, Len( dbName ) - Len( db.FileName ) ) & Ucase( ActionParam1(i) )
+			End If
+			
+			Set newdb = New NotesDatabase( server, dbName )
+			If Not newdb.IsOpen Then 
+				ActionParam1(i) = "4"
+				Goto NextAction
+			End If
+			Set newuidoc = ws.ComposeDocument( Server, DbName, ActionParam2(i) )
+			
+		Case 5	' Выполнить процедуру
+			
+			' Вызов новой процедуры (см. подпрограмму PrepareAction)
+			
+		End Select
+		
+		ActionParam1(i) = "0"
+NextAction:
+		ActionParam2(i) = "0"
+	Next
+	
+	
+	' Рассылка уведомлений
+	Dim Sends As Variant
+	Dim AddrList As Variant
+	Dim Subject As String
+	Dim Message As String
+	Dim ReturnReceipt As Variant
+	Dim DocType As String
+	
+	TStageName = tunedoc.StageName
+	j = 0 
+	Forall stage In StageNameSendMemo
+		If stage <> "" Then
+			num = Arraygetindex( TStageName, stage )
+			i = num
+			' Рассылка
+			SendList = SendToList(j)
+			If SendList(0) <> "-" Then
+				If Ubound(tunedoc.SendSubject) < i Then
+					Subject = ""
+				Elseif tunedoc.SendSubject(i) <> "" And tunedoc.SendSubject(i) <> "-" Then
+					result = Evaluate(tunedoc.SendSubject(i),curdoc)
+					Subject = result(0)
+				Else
+					Subject = ""
+				End If
+				If FromDialog(j) = "1" Then
+					Sends = dialogdoc.Sends						' роли рассылки
+					AddrList = dialogdoc.SendRecievers			' список адресатов
+					ReturnReceipt = dialogdoc.ReturnReceipt	' параметры рассылки
+					Message = dialogdoc.Message(0)				' доп. сообщение
+				Else
+					Sends = Evaluate("@Explode(""" + tunedoc.SendRole(i) + """;"";"")") 	' роли рассылки
+					AddrList = initarr
+					AddrList(0) = ""										' список адресатов
+					ReturnReceipt = initarr
+					ReturnReceipt(0) = "" 							' параметры рассылки
+					Message = ""										' доп. сообщение
+				End If
+				If tunedoc.SendToCalendar(i) = "1" Then
+					DocType = "Reminder" 								' тип сообщения
+				Else
+					DocType = "Memo" 									' тип сообщения
+				End If
+				
+				Call SendMemo(SendToList(j), Sends, AddrList, Subject, Message, ReturnReceipt, DocType,"send")
+			End If
+			' Уведомление
+			AcList = AcToList(j)
+			If AcList(0) <> "-" Then
+				If Ubound(tunedoc.AcSubject) < i Then
+					Subject = ""
+				Elseif tunedoc.AcSubject(i) <> "" And tunedoc.AcSubject(i) <> "-" Then
+					result = Evaluate(tunedoc.AcSubject(i),curdoc)
+					Subject = result(0)
+				Else
+					Subject = ""
+				End If
+				If FromDialog(j) = "1" Then
+					Sends = dialogdoc.Acs							' роли рассылки
+					AddrList = dialogdoc.AcRecievers				' список адресатов
+					ReturnReceipt = dialogdoc.ReturnReceipt	' параметры рассылки
+					Message = dialogdoc.Message(0)				' доп. сообщение
+				Else
+					Sends = Evaluate("@Explode(""" + tunedoc.AcRole(i) + """;"";"")") 	' роли рассылки
+					AddrList = initarr
+					AddrList(0) = ""										' список адресатов
+					ReturnReceipt = initarr
+					ReturnReceipt(0) = "" 							' параметры рассылки
+					Message = ""										' доп. сообщение
+				End If				
+				If tunedoc.AcToCalendar(i) = "1" Then
+					DocType = "Reminder" 								' тип сообщения
+				Else
+					DocType = "Memo" 									' тип сообщения
+				End If
+				
+				Call SendMemo(AcToList(j), Sends, AddrList, Subject, Message, ReturnReceipt, DocType,"acquaint")
+			End If
+			j = j + 1
+		End If
+	End Forall
+	
+End Function
+
+'++LotusScript Development Environment:2:2:AutomaticStagePrep:1:8
+Sub AutomaticStagePrep ( i As Integer )
+	
+	' Документ настройки этапов
+	Dim TStageName As String
+	Dim TStatusName As String
+	
+	TStageName = tunedoc.StageName(i)
+	TStatusName = tunedoc.StatusName(i)
+	result = Arraygetindex( StageNameRun, TStageName )
+	If Not Isnull( result ) Then Exit Sub
+	
+	NumCurStage = Arraygetindex( tunedoc.StageName, curdoc.StageName(0) )
+	If i > NumCurStage Then
+		StageNamePrev = Fulltrim( Arrayappend( StageNamePrev, StageName(0) ) )
+		StageName(0) = TStageName
+		StageNameCur(0) = TStageName
+		StatusName(0) = TStatusName
+	Else
+		StageName(0) = TStageName
+		StatusName(0) = TStatusName
+	End If
+	
+	result = Arraygetindex( StageNameRunBack, TStageName )
+	
+	If Isnull( result ) Then	'<--- Добавляем новый этап к выполнению
+		StageNameRun = Fulltrim( Arrayappend( StageNameRun, TStageName ) )
+		FromDialog = Fulltrim( Arrayappend( FromDialog, "0" ) )
+		Call SetStageFields
+		If tunedoc.StageFormulaInfoFlag(0) <> "" Then
+			If tunedoc.StageFormulaInfoFlag(i) = "1" Then
+				y = Msgbox( STAGE_RUN_1 + StatusName(0) + STAGE_RUN_2 , 64, RPT_TITLE )
+			End If
+		End If
+		
+	Else	' <--- Возвращаем ранее отработанный этап
+		If Ubound( StageNameRunBack ) = 0 Then
+			StageNameRunBack = initarr
+		Else
+			StageNameRunBack = Fulltrim( Arrayreplace( StageNameRunBack, StageName(0), "" ) )
+		End If
+		
+		If tunedoc.StageFormulaInfoFlag(0) <> "" Then
+			Call SetStageFields
+			If tunedoc.StageFormulaInfoFlag(i) = "1" Then
+				y = Msgbox( STAGE_RUN_1 + TStatusName + STAGE_RUN_3, 64, RPT_TITLE )
+			End If
+		End If
+		
+	End If
+	
+End Sub
+
+'++LotusScript Development Environment:2:2:AutomaticBackStagePrep:1:8
+Sub AutomaticBackStagePrep ( i As Integer )
+	
+	result = Arraygetindex( StageNameRun, StageName(0) )
+	
+	If Isnull( result ) Then
+		result = Arraygetindex( StageNameRunBack, StageName(0) )
+		If Isnull( result ) Then 
+			StageNameRunBack = Fulltrim( Arrayappend( StageNameRunBack, StageName(0) ) )
+		End If
+		f = False
+		
+	Else
+		If Ubound( StageNameRun ) = 0 Then
+			StageNameRun = initarr
+		Else
+			StageNameRun = Fulltrim( Arrayreplace( StageNameRun, StageNameRun(Ubound( StageNameRun )), "" ) )
+		End If
+		f = True
+		
+	End If
+	
+	If StageNamePrev(0) <> "" Then
+		StageName(0) = StageNamePrev(Ubound( StageNamePrev ))
+		StageNameCur = StageName
+		' Статус
+		TStageName = tunedoc.StageName
+		num = Arraygetindex( TStageName, StageName(0) )
+		If Not Isnull( num ) Then StatusName(0) = tunedoc.StatusName(num)
+		
+		If Ubound( StageNamePrev ) = 0 Then
+			StageNamePrev = initarr
+		Else
+			StageNamePrev = Fulltrim( Arrayreplace( StageNamePrev, StageNamePrev(Ubound( StageNamePrev )), "" ) )
+		End If
+		
+		If tunedoc.StageFormulaInfoFlag(0) <> "" Then
+			
+			If tunedoc.StageFormulaInfoFlag(i) = "1" Then
+				
+				If f Then
+					y = Msgbox( STAGE_BACK_1 + StatusName(0) + STAGE_BACK_3, 64, RPT_TITLE )
+				Else
+					y = Msgbox( STAGE_BACK_1 + StatusName(0) + STAGE_BACK_2, 64, RPT_TITLE )
+				End If
+				
+			End If
+			
+		End If
+		
+	End If	
+	
+	Call SetStageFields
+	
+End Sub
+'++LotusScript Development Environment:2:2:WriteDocState:1:8
+Sub WriteDocState( Target As Integer )
+' 0 - в переменных
+' 1 - в документа
+	
+	' Записывает состояние документа
+	If Target = 1 Then
+		curdoc.StageName = TmpDocState.StageName
+		curdoc.StageNameCur = TmpDocState.StageNameCur
+		curdoc.StageNamePrev = TmpDocState.StageNamePrev
+		curdoc.StageNameRun = TmpDocState.StageNameRun
+		curdoc.StageNameRunBack = TmpDocState.StageNameRunBack
+		curdoc.StatusName = TmpDocState.StatusName
+		
+	Else
+		StageName = TmpDocState.StageName
+		StageNameCur = TmpDocState.StageNameCur
+		StageNamePrev = TmpDocState.StageNamePrev
+		StageNameRun = TmpDocState.StageNameRun
+		StageNameRunBack = TmpDocState.StageNameRunBack
+		StatusName = TmpDocState.StatusName
+		
+	End If
+	
+End Sub
+
+
+
+'++LotusScript Development Environment:2:2:ReadDocState:1:8
+Sub ReadDocState( Source As Integer )
+' 0 - из переменных
+' 1 - из документа
+	
+	' Читаем состояние
+	If Source = 1 Then
+		TmpDocState.StageName = curdoc.StageName
+		TmpDocState.StageNameCur = curdoc.StageNameCur
+		TmpDocState.StageNamePrev = curdoc.StageNamePrev
+		TmpDocState.StageNameRun = curdoc.StageNameRun
+		TmpDocState.StageNameRunBack = curdoc.StageNameRunBack
+		TmpDocState.StatusName = curdoc.StatusName
+		
+	Else
+		TmpDocState.StageName = StageName
+		TmpDocState.StageNameCur = StageNameCur
+		TmpDocState.StageNamePrev = StageNamePrev
+		TmpDocState.StageNameRun = StageNameRun
+		TmpDocState.StageNameRunBack = StageNameRunBack
+		TmpDocState.StatusName = StatusName
+		
+	End If
+	
+End Sub
+'++LotusScript Development Environment:2:2:SendMemo:1:8
+Sub SendMemo( NotesAddrList As Variant, RoleList As Variant, AddrList As Variant, Subject As String, Message As String, ReturnReceipt As Variant, DocType As String, Flag As String)
+	' NotesAddrList - список Notes адресов 
+	' RoleList - список ролей
+	' AddrList - список дополнительных адресатов 
+	' Subject - тема сообщения
+	' Message - дополнительное сообщение, помещается в содержание
+	' ReturnReceipt - параметры отправки сообщения
+	' DocType - тип документа (Memo, Reminder)
+	' Flag - рассылка или уведомление
+	
+	' Используется только после подгодовки и выполнению всех действий по этапу.
+	
+	Dim maildoc As NotesDocument
+	Dim Body As NotesRichTextItem
+	
+	Set maildoc = New NotesDocument( db )
+	Set body = New NotesRichTextItem( maildoc, "Body" )
+	
+	'Формируем тему рассылки
+	If Flag = "send" Then
+		If Subject <> "" Then
+			maildoc.Subject = Subject
+		Else
+			maildoc.Subject = SM_SUBJECT_SEND +  Left( curdoc.Info(0), 100 ) + SM_SUBJECT_DB + db.Title + """"
+		End If
+		st1 = SM_BODY_SEND_1
+		st2 = SM_BODY_SEND_2
+		
+	Elseif Flag = "acquaint" Then	
+		If Subject <> "" Then
+			maildoc.Subject = Subject
+		Else
+			maildoc.Subject = SM_SUBJECT_ACQUAINT +  Left( curdoc.Info(0), 100 ) + SM_SUBJECT_DB + db.Title + """"
+		End If
+		
+		st1 = SM_BODY_ACQUAINT_1
+		st2 = SM_BODY_ACQUAINT_2
+	End If
+	
+	maildoc.InheritedSubject = curdoc.info(0)
+	maildoc.InheritedDbTitle = db.Title
+	
+	'Устанавливаем параметры рассылки
+	If Ubound(ReturnReceipt) = 1 Then
+		maildoc.ReturnReceipt = "1"
+		maildoc.DeliveryReport = "C"
+	Elseif ReturnReceipt(0) = "1" Then
+		maildoc.DeliveryReport = "C"
+	Elseif ReturnReceipt(0) = "2" Then
+		maildoc.ReturnReceipt = "1"
+	End If
+	
+	' Формируем содержание документа
+	Set tmpdoc = db.CreateDocument
+	tmpdoc.Sends = RoleList
+	Call RusName(AddrList)
+	tmpdoc.SendMailList = AddrList
+	send_role = Evaluate( "@Implode(Sends;"","")", tmpdoc)
+	send_list = Evaluate( "@Implode(SendMailList;"","")", tmpdoc )
+	
+	If send_role(0) <> "" And send_list(0) <> "" Then
+		Call body.AppendText(st1 + send_role(0) + """" + " и " + send_list(0) +_
+		SM_BODY_STAGE + curdoc.StatusName(0) + """")
+		Call body.AddNewLine(1)
+		maildoc.FlowStatus = st1 + send_role(0) + """" + " и " + send_list(0) +_
+		SM_BODY_STAGE + curdoc.StatusName(0)+""""
+		
+	Elseif send_role(0) <> "" Then
+		Call body.AppendText(st1 + send_role(0) + """" + SM_BODY_STAGE + curdoc.StatusName(0) + """")
+		Call body.AddNewLine(1)
+		maildoc.FlowStatus = st1 + send_role(0) + """" + SM_BODY_STAGE + curdoc.StatusName(0)+""""
+		
+	Elseif send_list(0) <> "" Then
+		Call body.AppendText( st2 + send_list(0) + """" + SM_BODY_STAGE + curdoc.StatusName(0) + """" )
+		Call body.AddNewLine(1)
+		maildoc.FlowStatus = st2 + send_list(0) + """" + SM_BODY_STAGE + curdoc.StatusName(0) + """"
+		
+	End If 
+	
+	Call body.AppendText( Message )
+	Call body.AddNewLine(1)
+	Call body.AppendText( SM_DOC_REFERENCE )
+	Call body.AddNewLine(1)
+	Call body.AppendDocLink( curdoc, SM_DOC_REFERENCE &  Left( curdoc.Info(0), 100 ) )
+	
+	' Формирование поля sendto
+	Set sendto = New NotesItem( maildoc, "SendTo", NotesAddrList )
+	
+     ' Формирование записи в календаре	
+	If DocType = "Reminder" Then Call SetReminder( maildoc, curdoc.ControlDate(0) )
+	
+	' Отправка сообщения
+	If maildoc.SendTo(0) <> "" Then Call maildoc.Send (False)
+	
+End Sub

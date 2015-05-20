@@ -1,0 +1,220 @@
+'++LotusScript Development Environment:2:5:(Options):0:72
+%REM
+	Library Log
+	Created Jul 19, 2012 by Lotus Designer/PKC
+	Description: Comments for Library
+%END REM
+Option Public
+Option Declare
+Use "limage"
+
+
+'++LotusScript Development Environment:2:5:(Forward):0:1
+Declare Sub QDocumentdelete(Source As NotesUIDatabase, Continue As Variant)
+Declare Sub PDocumentdelete(Source,Continue)
+Declare Function  qFromMain(db, FieldName$)
+
+'++LotusScript Development Environment:2:5:(Declarations):0:10
+Dim message_log As String
+Dim message As String		
+Dim tt As String
+Dim uu As String	
+Dim dbdel As NotesDatabase
+Dim collection As NotesDocumentCollection
+Dim docNew As NotesDocument
+Dim doc As NotesDocument
+Dim profile As NotesDocument
+Dim dbNameDel As String
+Dim dbNameLog As String
+Dim dbName As String
+Dim server As String
+Dim col As NotesDocumentCollection, curcol As NotesDocumentCollection
+Dim boxType As Long, answer As Integer
+Dim result As Variant	
+Dim db1 As NotesDatabase
+Dim logdel As NotesDocument
+Dim dateRange As NotesDateRange
+Dim slog As NotesItem
+Dim user As String
+
+'++LotusScript Development Environment:2:2:QDocumentdelete:1:8
+Sub QDocumentdelete(Source As NotesUIDatabase, Continue As Variant)
+	Continue = False	
+	On Error GoTo ErrHnd
+	Dim db As NotesDatabase, session As New NotesSession, ws As New NotesUIWorkspace, dbName_Log As String, doc_log As NotesDocument
+	Dim s$, n$, dt$, extnumb$, typ$, intnumb$, L&, xx, ub, jj As Long, qFlag As Boolean, arch$
+	If Not ws.CurrentView Is Nothing Then
+		If InStr(LCase(Source.Database.FileName), "indocum")>0 Or InStr(LCase(Source.Database.FileName), "outdocum")>0 Or _
+			InStr(LCase(Source.Database.FileName), "task")>0 Or InStr(LCase(Source.Database.FileName), "ord")>0 Or _
+			InStr(LCase(Source.Database.FileName), "visoutdoc")>0 Or InStr(LCase(Source.Database.FileName), "visord")>0 Then		  
+				If ws.CurrentView.ViewName = "(vimage)" Then qFlag = True
+				If ws.CurrentView.ViewName = "(vimageForRead)" Then Continue = False : Exit Sub
+		ElseIf InStr(LCase(Source.Database.FileName), "memos")>0 Then 
+				If ws.CurrentView.ViewName = "(vimage)" Or ws.CurrentView.ViewName = "(vimageForRead)"  Then qFlag = True
+		Else
+			If ws.CurrentView.ViewName = "(vimageAuszug)" Or ws.CurrentView.ViewName = "(vimageProtokol)" Then qFlag = True
+		End if
+		If qFlag Then 
+			If MessageBox ( "Удалить вложение без возможности восстановления?"  , 4 + 32 + 256 + 0  , "Удалить вложение?" ) = 6 Then 
+				Call Source.Documents.RemoveAll(True ) : Call ws.ViewRefresh : Continue = False : Exit Sub
+			Else
+				Continue = False : Exit Sub
+			End if
+		End if
+	End If '(_/_)	
+	'log
+	Dim db_Log As NotesDatabase
+	
+	user = session.UserName
+	
+	'*****	
+	Set db = session.CurrentDatabase
+	server = db.Server
+	Set col = Source.Documents
+     ' наличие роли на удаление
+	If StrLeft(db.FilePath,"\") = "ESC" Then
+		dbName_Log = "LOG"+ "\" + "LOG_DB.NSF" 
+	Else
+		arch$ = ""
+		If InStr(LCase(StrLeft(session.Currentdatabase.Filepath ,"\")),"arch") > 0 Then arch$ = Mid(session.Currentdatabase.Filepath,1 ,7)
+'		dbName_Log = "LOG"+ "\" + "LOG_DB_" + StrLeft(Replace(session.Currentdatabase.Filepath,arch$,"") ,"\") +".NSF" 
+'MsgBox StrLeft(session.Currentdatabase.Filepath,"\")
+		dbName_Log = "LOG"+ "\" + "LOG_DB_" + Replace(StrLeft(session.Currentdatabase.Filepath,"\"),"SED_","") +".NSF"
+	End If
+	Set db_Log = New NotesDatabase(server, dbName_Log)
+	If Not db_Log.IsOpen Then
+		MessageBox "Не возможно открыть " + dbName_Log + " Обратитесь в тех. поддержку..." 
+		Call errh(" Не возможно открыть " + dbName_Log )
+		Continue = False
+		Call db_Log.open("", "")		
+		Exit Sub
+	End If
+'	Messagebox "Если этот документ поставлен на согласование, не забудьте снять его с согласования в БД Согласование"
+	
+	s$ = "@IsMember( ""[CanDeleteDoc]""; @UserRoles )"
+	result = Evaluate( s$ )
+	message_log=LTrim$(message_log)
+	answer = MessageBox("Удаление будет занесено в LOG", 4 + 32, "Продолжить ?")
+	If (answer = 7) Then  Continue = False : Exit Sub	Else Continue = True
+	For L& = 1 To  col.Count 
+		
+		Set doc = col.GetNthDocument( L& )
+          ' проверка на права удаления документов
+		
+		If server <> "" Then
+			
+			If result(0) = 0 Then
+				
+				If doc.Form(0) <> "LockDoc" Then
+					Continue = False
+					MsgBox "Вы не включены в роль [CanDeleteDoc] для возможности удаления документа. Обратитесь к администратору...", 48, "Предупреждение"
+					Exit Sub
+				Else
+					Continue = True
+				End If
+				
+			End If
+			
+		End If
+		
+			' log по удаленным документам
+		uu = user
+		
+		n$ = "@Name([Canonicalize];@UserName)"
+		If message_log<>"" Then message_log=message_log+Chr(13)
+		
+		If  doc.Form(0)="wiza" Then 
+			message_log = message_log+"  Кр. содерж.- "+ doc.Info(0)   
+		Else
+			If doc.HasItem("TypDoc") Then typ$ = " "+ doc.TypDoc(0) Else typ$ =  ""
+			If doc.HasItem("Date") Then dt$ = "   от "+ CStr(doc.Date(0)) Else dt$ =  ""
+			If doc.HasItem("ExternalNumber") Then extnumb$ =  "  внеш № "+ CStr(doc.ExternalNumber(0)) Else extnumb$ =  ""
+			If doc.HasItem("InternalNumber") Then intnumb$ =  "  внутр № "+ doc.InternalNumber(0) Else intnumb$ =  ""
+			message_log = message_log+" Автор - " + doc.GetItemValue("$UpdatedBy")(0) +"  Form= "+ doc.Form(0) + " " + typ$ +intnumb$ +dt$ +extnumb$ + " Удалено- "+user
+		End If
+'	*****  log	
+  '	notesDir = session.GetEnvironmentString("BDDir")
+%REM
+		Set curcol =  doc.Responses
+		
+		If (curcol.Count > 0) Then
+			
+			Select Case doc.Form(0)
+				
+			Case "DocForm1":
+				message = doc.TypDoc(0)  + " """ +  doc.Info(0) + """" + " будет удален со всеми присоединенными документами"
+			Case "RespRespDoc":     
+				message = doc.TypDoc(0) + " """ +  doc.Info(0) + """" + " будет удален со всеми присоединенными документами"
+			Case Else:     
+				Exit Sub
+			End Select
+			boxType =4 + 32 ' MB_OK + MB_ICONQUESTION
+			answer = Messagebox(message  , boxType, "Продолжить ?")
+			
+			If (answer = 7) Then  ' IDNO
+				Continue = False    
+				Exit Sub
+			End If     
+		End If
+%END REM
+Continue:     
+	Next	
+	'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	
+	xx = 1
+	ub = 63000
+'	Msgbox Cstr(Lenbp(message_log))	 + " число циклов: " + Cstr( Lenbp(message_log) \ ub)
+	For jj = 0 To   LenBP(message_log) \ ub
+		ReDim Preserve 	msglog(0 To jj)
+		msglog(jj) = MidBP(message_log,xx, ub)
+		xx = xx + LenBP(msglog(jj))
+		Set doc_log = New  NotesDocument (db_Log)
+		doc_log.Form = "Log_db"
+		doc_log.DB_Name = db.Title
+		doc_log.DD_Del=Str( Now )
+		doc_log.User_Del=uu
+		doc_log.Info = msglog(jj) ' message_log
+		Call doc_log.Save(True,False,True)
+	Next
+'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%		
+	message_log=""
+	message=""
+	
+' ******log		
+	Exit Sub
+ErrHnd:  
+	Continue = False
+	Call errh(" Querydocumentdelete ")
+End Sub
+
+'++LotusScript Development Environment:2:2:PDocumentdelete:1:8
+Sub PDocumentdelete(Source,Continue)
+	
+	
+End Sub
+
+'++LotusScript Development Environment:2:1:qFromMain:1:8
+Function  qFromMain(db, FieldName$)
+	On Error GoTo ErrHnd
+	server = db.Server
+	dbName = db.FilePath     
+	Dim dc As NotesDocumentCollection
+	Dim qqqq$
+	
+     '----- Открываем базу данных "Настройка "
+	If Right( dbName, 3 ) = "nsf" Then
+		dbName = Mid( dbName, 1, Len( dbName ) - Len( db.FileName ) ) & "main.nsf"
+	ElseIf Right( dbName, 3 ) = "NSF" Then
+		dbName = Mid( dbName, 1, Len( dbName ) - Len( db.FileName ) ) & "MAIN.NSF"
+	End If 
+	Dim db1 As NotesDatabase
+	Set db1 = New NotesDatabase(server, dbName)
+	If Not db1.IsOpen Then MsgBox "Не найдена база данных настроек! Отслеживание статуса не возможно!" : Exit Function
+	qqqq$ ="Form = ""DbSetup"" & @UpperCase(DbFile) = @UpperCase(""" + db.FileName + """)"
+	Set dc = db1.Search(qqqq$ , Nothing, 0)
+'	Set dc = db1.Search("Form = ""DbSetup"" & @UpperCase(DbFile) = @UpperCase(""" + db.FileName + """)", Nothing, 0)
+	Set doc = dc.GetFirstDocument
+	If doc Is Nothing Then MsgBox "Не найден документ настроек! Отслеживание статуса не возможно!" : Exit Function
+	qFromMain = doc.getitemvalue(FieldName$)(0)
+	Exit Function
+ErrHnd: Call errh(" qFromMain FromMain ")
+End Function

@@ -1,0 +1,146 @@
+'++LotusScript Development Environment:2:5:(Options):0:74
+Option Public
+
+'++LotusScript Development Environment:2:5:(Forward):0:1
+Declare Function AddToList( Source As Variant, Value As Variant, Default As Variant, Unique As Variant ) As Variant
+Declare Function DelFromListByValue( Source As Variant, Value As Variant, AllEntring As Variant )
+Declare Function DelFromListByNth( Source As Variant, Num As Integer )
+
+'++LotusScript Development Environment:2:5:(Declarations):0:2
+
+'++LotusScript Development Environment:2:1:AddToList:1:8
+Function AddToList( Source As Variant, Value As Variant, Default As Variant, Unique As Variant ) As Variant
+' Добавляет значение в список
+' Source - исходный список значений
+' Value - новое значение, одно или несколько значений
+' Default - значение, которым заменяется пустой элемент списка
+' Unique - флаг проверки на наличие в списке добавляемого значения
+	
+	Dim Count As Integer
+	
+	' Количечтво элементов в списке
+	Source = Fulltrim( Source )
+	If Source(0) = "" Then
+		If Default <> "" Then
+			Count = -1
+		Else
+			Count = 0
+		End If
+	Else
+		Count = Ubound( Source ) - Lbound( Source )
+	End If
+	
+	' Добавление новых значений
+	If Unique Then '<--- Проверятьна уникальность
+		
+		If Isarray( Value ) Then '<--- Добавить массив значений
+			
+			Forall item In Value
+				v = Arraygetindex(  Source, item )
+				
+				If Isnull( v ) Then 
+					If Count < 0 Then
+						Source = item
+					Else
+						Source = Arrayappend( Source, item )
+					End If
+					Count = Count + 1
+				End If
+			End Forall
+			
+		Else '<--- Добавить одно значение
+			v = Arraygetindex(  Source, value )
+			
+			If Isnull( v ) Then 
+				
+				If Count < 0 Then
+					Source = Value
+				Else
+					Source = Arrayappend( Source, value )
+				End If
+				
+			End If
+		End If
+		
+	Else '<--- Не проверять на уникальность
+		
+		If Count < 0 Then
+			If Isarray( Value ) Then
+				Source = Value
+			Else
+				Source(0) = Value
+			End If
+		Else
+			Source = Arrayappend( Source, Value )
+		End If
+		
+	End If
+	
+	' Заменить пустые значения на Default
+	If Default <> "" Then
+		
+		For i% = 0 To Ubound( Source )
+			If Source(i%) = "" Then Source(i%) = Default
+		Next
+		
+		Source = Fulltrim( Source )
+	End If
+	
+	AddToList = Source
+End Function
+'++LotusScript Development Environment:2:1:DelFromListByValue:1:8
+Function DelFromListByValue( Source As Variant, Value As Variant, AllEntring As Variant )
+' Удаляет значение из списка
+' Source - исходный список значений
+' Value - новое значение, одно или несколько значений
+' AllEntring - флаг проверки на наличие в списке добавляемого значения
+	
+	Dim values As Variant
+	
+	values = Source
+	
+	If Isarray( Value ) Then
+		
+		Forall item In Value
+			v = Arraygetindex( values, item )
+			
+			If AllEntring Then
+				
+				While Not Isnull( v )
+					values(v(0)) = ""
+					v = Arraygetindex( values, item )
+				Wend
+				
+			Else
+				values(v(0)) = ""
+			End If
+			
+		End Forall
+		
+	End If
+	
+	DelFromListByValue = Fulltrim( values )
+End Function
+'++LotusScript Development Environment:2:1:DelFromListByNth:1:8
+Function DelFromListByNth( Source As Variant, Num As Integer )
+' Удаляет значение из списка
+' Source - исходный список значений
+' Num - номер строки в списке, которую надо удалить
+	
+	Dim values As Variant
+	
+	values = Source
+	If Not Isarray( Source ) Then
+		DelFromListByNum = Source
+		Exit Function
+	End If
+	
+	If Num < Lbound( Source ) Or Num > Ubound( Source ) Then
+		DelFromListByNth = Source
+		Exit Function
+	End If
+	
+	values(Num) = ""
+	
+	DelFromListByNth = Fulltrim( values )
+End Function

@@ -1,0 +1,346 @@
+'++LotusScript Development Environment:2:5:(Options):0:72
+%REM
+	Library chatSL
+	Created Aug 6, 2012 by Lotus Designer/PKC
+	Description: Comments for Library
+%END REM
+Option Public
+Option Declare
+Use "errh"
+
+'++LotusScript Development Environment:2:5:(Forward):0:1
+Declare Sub ChatResp(fromview)
+Declare Function SendNotice1 (doc, Tema As String, bodytitle$, bodyFooter$, body$,  listSend As Variant)
+Declare Sub ChatNew
+
+'++LotusScript Development Environment:2:5:(Declarations):0:2
+
+'++LotusScript Development Environment:2:2:ChatResp:1:8
+Sub ChatResp(fromview)
+	On Error GoTo ErrHnd
+	Dim ws As New NotesUIWorkspace
+	Dim curdoc As NotesDocument
+	Dim doc As NotesDocument
+	Dim curdb As NotesDatabase
+	Dim uidoc As NotesUIDocument
+	Dim ss As New NotesSession, CurViewFlag As Boolean, curview$
+	Dim rtitem As  NotesRichTextItem, it As  NotesRichTextItem
+'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		Dim maildoc As NotesDocument
+curview$ = "none"
+	CurViewFlag = false
+	If not ws.CurrentView Is Nothing Then 
+		If ws.CurrentView.Viewname = "(ChatV)" Then
+			CurViewFlag = true 
+			curview$ = "(ChatV)"
+			Set curdoc = ss.currentdatabase.UnprocessedDocuments.GetFirstDocument
+			If curdoc Is Nothing Then MsgBox "Выберите документ" : Exit Sub
+		End If
+	End If
+	If Not CurViewFlag Then Set curdoc = ws.CurrentDocument.document
+'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%		
+	Set curdb = curdoc.Parentdatabase 'ss.currentdatabase
+		Set maildoc = curdb.Createdocument()
+		Set it = New NotesRichTextItem( maildoc, "body" )
+	If InStr(LCase(curdb.Filepath),"mail") > 0 Then 
+		Set curdb = ss.currentdatabase
+If ss.Username = "CN=Курзаев Павел Анатольевич/O=PKC" Then		
+		maildoc.subject = "29:ChatResp, curview$= " + curdb.Filepath + " on " + curdb.Server 
+		Call it.AppendDocLink(curdoc, curdoc.UniversalID)
+		Call maildoc.Send(False, "CN=Вепринский Виталий Львович/O=PKC")
+	End If
+End If	
+	If InStr(LCase(curdb.Filepath),"mail") > 0 Then
+		If curdoc.Hasitem("DbUnid") Then 
+			Set curdb = ss.GetDatabase(StrToken(curdoc.DbUnid(0),"%",3),StrToken(curdoc.DbUnid(0),"%",2))
+If ss.Username = "CN=Курзаев Павел Анатольевич/O=PKC" Then '(_|_)	'(_|_)	
+		maildoc.subject = "36:ChatResp, curview$= " + curdb.Filepath + " on " + curdb.Server 
+		Call it.AppendDocLink(curdoc, curdoc.UniversalID)
+		Call maildoc.Send(False, "CN=Вепринский Виталий Львович/O=PKC")
+End if
+		End if
+	End If	
+'	%REM
+	If InStr(LCase(curdb.Filepath),"mail") > 0 Then '(_|_)	'(_|_)	
+		maildoc.subject = "!!!ChatResp, curview$= " + curview$ + ", " + curdb.Filepath + " on " + curdb.Server 
+		Call it.AppendDocLink(curdoc, curdoc.UniversalID)
+		Call maildoc.Send(false, "CN=Вепринский Виталий Львович/O=PKC")
+	End If
+'	%END REM
+	If InStr( LCase(curdoc.Parentdatabase.Filepath),"mail") > 0 Then 
+		If curdoc.Hasitem("docUnid") Then
+			If curdoc.docUnid(0) <> "" Then Set curdoc = curdb.Getdocumentbyunid(curdoc.docUnid(0) ) 
+If ss.Username = "CN=Курзаев Павел Анатольевич/O=PKC" Then '(_|_)	'(_|_)	
+		maildoc.subject = "36:ChatResp, curview$= " + curdb.Filepath + " on " + curdb.Server 
+		Call it.AppendDocLink(curdoc, curdoc.UniversalID)
+		Call maildoc.Send(False, "CN=Вепринский Виталий Львович/O=PKC")
+End If			
+		End If
+	End if
+	Set doc = curdb.CreateDocument
+	doc.Registrator_1 = curdoc.Registrator_1
+	doc.Registrator = curdoc.Registrator
+	doc.FromAssistant = curdoc.FromAssistant
+	doc.From = curdoc.From
+	doc.From_1 = curdoc.From_1
+	doc.ВхНом = curdoc.ВхНом
+	doc.ДатаВх = curdoc.ДатаВх
+	doc.ChatTextRews1_tmp = curdoc.ChatTextRews1_tmp
+	doc.ChatTextRews_tmp = curdoc.ChatTextRews_tmp
+	doc.BodyText = ""
+	doc.Form = "ChatText"
+	doc.isresp = "1"
+	doc.ChatTextAuth0_1_1 = "Автору комментария"
+	doc.ChatTextAuth1Tmp_1 = curdoc.ChatTextUser
+	doc.ChatTextAuth1Tmp_1n = curdoc.ChatTextUsern
+	Call doc.Replaceitemvalue("ChatTextResp1", FullTrim(Replace(curdoc.ChatTextResp1Col,curdoc.ChatTextUser,"")))
+	Call doc.Replaceitemvalue("ChatTextResp1Col", FullTrim(Replace(curdoc.ChatTextResp1Col,curdoc.ChatTextUser,"")))
+	Call doc.Replaceitemvalue("ChatTextResp1nCol", FullTrim(Replace(curdoc.ChatTextResp1Coln,curdoc.ChatTextUsern,"")))
+nochmal:
+	If Not ws.DialogBox( "ChatText", True, True, False, False, False, False, "Ответить", doc,True ) Then Exit Sub
+	Set doc = curdb.Getdocumentbyunid(doc.Universalid)
+	Dim it37 As NotesRichTextItem
+	Dim res As Variant
+	Set it37 = doc.Getfirstitem("Body1")
+	res = Evaluate({@AttachmentLengths},doc)
+	If  LenB(it37.Values) = 0 And CStr(res(0)) = ""  Then ' doc.BodyText(0) = "" And
+			If MessageBox ( "Не заполнен комментарий! Заполнить?"  , 4 + 32 + 256 + 0  , "Внимание!" ) = 6 Then 
+				GoTo nochmal
+			Else
+				MsgBox "Сообщение отправлено не было..." 
+				Exit Sub
+			End If
+ 	End If
+	Set rtitem = curdoc.Getfirstitem("Body")
+	Dim pardoc As NotesDocument
+	Dim rtnav As NotesRichTextNavigator
+	Dim rtlink As NotesRichTextDocLink
+	Set rtnav = rtitem.CreateNavigator
+  	If Not rtnav.FindFirstElement(RTELEM_TYPE_DOCLINK) Then  
+  		MessageBox "No doclinks in Body item",, "No doclinks found"
+  		maildoc.subject = "No doclinks in Body item" 
+		Call it.AppendDocLink(pardoc, pardoc.UniversalID)
+		Call maildoc.Send(False, "CN=Вепринский Виталий Львович/O=PKC")
+  	Else
+  		On Error 4005  Resume Next
+		On Error 4000  Resume Next
+		On Error 4294 Resume Next
+		On Error 4060 Resume Next
+		On Error 4265 Resume Next
+		On Error 4091 Resume Next
+	   	Set rtlink = rtnav.GetElement
+	   	Dim pardocDB As New NotesDatabase(curdb.Server,"")
+'	  	MsgBox  rtlink.DbReplicaID + " " + rtlink.Docunid + " " + rtlink.Displaycomment
+	  	call pardocDB.Openbyreplicaid(curdb.Server, rtlink.DbReplicaID)
+		Set pardoc = pardocDB.GetDocumentByUNID(rtlink.DocUNID  ) 'ws.CurrentDocument.Document.Docuid(0) )
+	'	If pardoc Is Nothing Then Msgbox "Не найден основной документ, продолжение не возможно..." : Exit Sub
+	End if
+
+'%REM	
+	Dim kk As Integer, jj As Integer
+	ReDim SendList(0 To UBound(doc.GetItemValue("ChatTextResp1")))
+	If doc.GetItemValue("ChatTextResp1")(0) <> "" then
+		For jj = 0 To UBound(doc.GetItemValue("ChatTextResp1"))
+			SendList(jj) = curdoc.GetItemValue("ChatTextResp1nCol")(ArrayGetIndex(doc.GetItemValue("ChatTextResp1Col"),doc.GetItemValue("ChatTextResp1")(jj)))
+		Next
+	Else
+		SendList(0) = ""
+	End if
+	doc.ChatTextResp1Col = ArrayUnique(FullTrim(ArrayAppend(curdoc.ChatTextResp1Col,curdoc.ChatTextUser)))
+	doc.ChatTextResp1nCol = ArrayUnique(FullTrim(ArrayAppend(curdoc.ChatTextResp1nCol,curdoc.ChatTextUsern)))
+'%END REM
+	Call doc.MakeResponse(curdoc)
+	doc.DocUID = curdoc.DocUID(0)
+	Set rtitem = New NotesRichTextItem( doc, "Body" )
+	If Not pardoc Is Nothing Then Call rtitem.Appenddoclink(pardoc, "№ " + curdoc.Getitemvalue("ВхНом")(0) + " от " +  CStr(curdoc.Getitemvalue("ДатаВх")(0)))
+	doc.BodyText = it37.Text
+	doc.recipient = FullTrim(ArrayUnique(ArrayAppend(SendList,curdoc.ChatTextUsern)))
+	doc.DbUnid = curdb.Replicaid + "%" + curdb.Filepath + "%" + curdb.Server
+	doc.docUnid = curdoc.Universalid	
+	Call doc.Save(True,True)	
+'	что открывать при переходе????? комментарий, документ согласова с выдел документотм или view с выделенным документом?
+	Dim subj$
+	subj$ = "Комментарий: " + Left(CStr(it37.Text),120) + " ..."
+	Call SendNotice1 (doc, subj$, "Для прочтения комментария перейдите по ссылке ", "", "", FullTrim(ArrayUnique(ArrayAppend(SendList,curdoc.ChatTextUsern))))
+	Call ws.Viewrefreshbydbid(curdb.replicaid, "(ChatV)")
+	If not fromview Then ws.Currentdocument.close(True) ' ws.CurrentView Is Nothing
+	Exit Sub	
+ErrHnd:  
+	MsgBox CStr(Erl) + ": " + Error
+	Call errh(" ChatResp ")
+End Sub
+
+'++LotusScript Development Environment:2:1:SendNotice1:1:8
+Function SendNotice1 (doc, Tema As String, bodytitle$, bodyFooter$, body$,  listSend As Variant)
+	On Error GoTo ErrHnd
+	On Error 4000 GoTo q4000
+	On Error 4294 GoTo q4000	
+	On Error 4295 GoTo q4000	
+	Dim qIsarray As Boolean
+	Dim sess As New NotesSession
+	Dim ws As New NotesUIWorkspace	
+	Dim curdb As NotesDatabase
+	Set curdb=sess.currentdatabase
+	Dim maildoc As NotesDocument
+	Dim rtitem As NotesRichTextItem
+	Dim SN As New NotesName(curdb.server)
+	Dim values As Variant, MailList As Variant
+	ReDim values(0 To 0)	
+	If Not IsArray( listSend ) Then 
+		values(0) = listSend 
+	Else
+		values = listSend	
+	End If
+	ForAll v In values
+		Set maildoc = curdb.CreateDocument	
+		maildoc.Form = "Memo"
+		maildoc.From = StrRight(StrLeft(sess.UserName,"/"),"=")
+		maildoc.sendto = v
+		maildoc.subject = Tema
+		Set rtitem = New NotesRichTextItem( maildoc, "Body" )
+		
+		If bodytitle$ <> "" Then Call rtitem.appendtext(bodytitle$   + Chr$(10) + Chr(13)   + Chr$(10) + Chr(13) )
+		body$=body$+ "   " + "  Ссылка на документ --------->" ' + bodytitle$
+		Call rtitem.appendtext(body$) '  + Chr$(10) + Chr(13))
+'		urlNotes$ = "notes://" + sn.common + "/" + Strright(id$,"%") + "/0/" + Strleft(id$,"%")
+'		body$ = {<br><font size=1 face="default sans serif" >	<a href="} & urlNotes$ & {" color="blue">Открыть документ</a><br>}			
+		'Call rtitem.AppendDocLink( doc, body$,hotspot$)
+		Call rtitem.AppendDocLink( doc, curdb.Title )
+		If bodyFooter$ <> "" Then Call rtitem.appendtext(Chr$(10) + Chr(13)   + Chr$(10) + Chr(13)+bodyFooter$) 
+		
+		Call maildoc.Send(False)
+		body$ = ""
+		bodytitle$ = ""
+		bodyFooter$ = ""
+	End ForAll
+	Exit Function
+q4000:
+	If qIsarray Then MailList = Join(values) Else MailList = values(0)
+	MsgBox |Не найден адрес: "| + MailList + |"!! Уведомление отправлено не было.| ', так как " + Error$
+	SendNotice1 = False
+	Exit Function	
+ErrHnd:  
+	Call errh(" Function SendNotice ")
+	
+End Function
+
+'++LotusScript Development Environment:2:2:ChatNew:1:8
+Sub ChatNew
+	On Error GoTo ErrHnd
+			On Error 4091 Resume Next
+	Dim ws As New NotesUIWorkspace
+	Dim curdoc As NotesDocument
+	Dim doc As NotesDocument
+	Dim curdb As NotesDatabase
+	Dim uidoc As NotesUIDocument
+	Dim ss As New NotesSession
+	Set curdb=ss.currentdatabase
+'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	
+	If Not ws.CurrentView Is Nothing Then
+		Set curdoc = curdb.UnprocessedDocuments.GetFirstDocument
+		If curdoc Is Nothing Then MsgBox "Выбирите документ" : Exit Sub
+	Else
+		Set curdoc=ws.CurrentDocument.document		
+	End If
+'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	
+	If curdoc.IsNewNote Then
+		If MessageBox ( "Для комментария необходимо сохранить текущий документ! Сохранить?"  , 4 + 32 + 256 + 0  , "Сохранить!" ) = 6 Then
+'			Call curdoc.Save(True,True)
+		Call ws.Currentdocument.Save()
+		Else
+			MsgBox "продолжение не возможно..."
+			Exit Sub
+		End If
+	End If
+'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	ReviewersInfo_bl1, Reviewers_1_bl1
+	Dim db As NotesDatabase
+	Set db = ss.GetDatabase(curdb.Server,curdoc.Dbname(0))
+	Set doc = db.CreateDocument
+	doc.DbUnid = db.Replicaid + "%" + db.Filepath + "%" + db.Server
+	Dim rev As Variant
+	rev = Evaluate({@unique(Reviewers_bl1:Reviewers_bl2:Reviewers_bl3:Reviewers_bl4:Reviewers_bl5)},curdoc)
+	Call doc.ReplaceItemValue("ChatTextRews1_tmp", FullTrim(rev)) 'curdoc.GetItemValue("Reviewers"))
+	Dim it1 As NotesItem ', it2 As NotesItem, it3 As NotesItem, it4 As NotesItem
+	Dim jj As Integer, kk As Integer, ii As Integer
+	Dim res As Variant, listSend As Variant, qres As Variant
+	qres = FullTrim(Evaluate({@unique(Registrator_1:FromAssistant:From_1)},curdoc))
+	Stop
+	For jj = 1 To 5 
+		If curdoc.Hasitem("ReviewersInfo_bl" + CStr(jj) ) Then
+			For kk = 0 To UBound(curdoc.getitemvalue("ReviewersInfo_bl" + CStr(jj)))
+	'		If curdoc.GetItemValue("Reviewers_1_bl" + CStr(jj+1) )(0) <> "Нет адресата" Then 
+			If IsNull(ArrayGetIndex(qres,StrToken(curdoc.getitemvalue("ReviewersInfo_bl" + CStr(jj))(kk),"!",1))) Then
+				If jj = 1 And kk = 0 Then
+					Set it1 = doc.ReplaceItemValue("ChatTextRews_tmp",StrToken(curdoc.getitemvalue("ReviewersInfo_bl" + CStr(jj))(kk),"!",1))
+				Else
+					Call it1.AppendToTextList( StrToken(curdoc.getitemvalue("ReviewersInfo_bl" + CStr(jj))(kk),"!",1))
+				End If
+			End If		
+			Next ' kk
+		End If ' If curdoc.Hasitem(Itemname) Then
+	Next	' jj
+	doc.Registrator_1 = curdoc.Registrator_1
+	doc.Registrator = curdoc.Registrator
+	doc.FromAssistant = curdoc.FromAssistant
+	doc.From = curdoc.From
+	doc.From_1 = curdoc.From_1
+	doc.ВхНом = curdoc.ВхНом
+	doc.ДатаВх = curdoc.ДатаВх
+	doc.Form = "ChatText"
+nochmal:
+	If Not ws.DialogBox( "ChatText", True, True, False, False, False, False, "Отправить комментарий", doc,True ) Then Exit Sub
+	Set doc = db.Getdocumentbyunid(doc.Universalid)
+	Dim it As NotesRichTextItem
+	Set it = doc.Getfirstitem("Body1")
+	res = Evaluate({@AttachmentLengths},doc)
+	If  LenB(it.Values) = 0 And CStr(res(0)) = ""  Then ' doc.BodyText(0) = "" And
+			If MessageBox ( "Не заполнен комментарий! Заполнить?"  , 4 + 32 + 256 + 0  , "Внимание!" ) = 6 Then 
+				GoTo nochmal
+			Else
+				MsgBox "Сообщение отправлено не было..." 
+				Exit Sub
+			End If
+ 	End If
+	doc.DocUID = curdoc.DocUID(0)
+	doc.DateC = curdoc.DateC(0)
+	doc.TimeCreated = curdoc.TimeCreated(0)
+	Dim rtitem As  NotesRichTextItem
+	Set rtitem = New NotesRichTextItem( doc, "Body" )
+	Call rtitem.AppendDocLink( curdoc,"Основной документ")	
+	Call doc.Replaceitemvalue("ChatTextResp1Col", doc.ChatTextUser)
+	Call doc.Replaceitemvalue("ChatTextResp1nCol", doc.ChatTextUsern)
+	Call doc.Save(True,True)
+	ReDim SendList(0 To UBound(doc.GetItemValue("ChatTextRews1"))) ' визирующие
+	For jj = 1 To 5 
+		For kk = 0 To UBound(curdoc.getitemvalue("ReviewersInfo_bl" + CStr(jj)))
+			For ii = 0 To UBound(doc.GetItemValue("ChatTextRews1"))
+			If StrToken(curdoc.getitemvalue("ReviewersInfo_bl" + CStr(jj))(kk),"!",1) = StrToken(doc.ChatTextRews1(ii),"!",1) Then
+				 SendList(ii) = StrToken(curdoc.getitemvalue("ReviewersInfo_bl" + CStr(jj))(kk),"!",4)
+			End If
+			Next ' ii
+		Next ' kk
+	Next	' jj
+	res = Evaluate({@if(ChatTextAuth1!="";Registrator;""):@if(ChatTextFrom1!="";FromAssistant:From;"")},doc) ' отв и автор
+	listSend = ArrayUnique(FullTrim(ArrayAppend(SendList,res)))
+	If listSend(0) = "" Then
+			If MessageBox ( "Не заполнены получатели! Заполнить?"  , 4 + 32 + 256 + 0  , "Внимание!" ) = 6 Then 
+				GoTo nochmal
+			Else
+				MsgBox "Сообщение отправлено не  было..." 
+				Exit Sub
+			End If
+ 	End If
+	Dim subj$
+'	subj$ = "Комментарий: " + Left(CStr(doc.BodyText(0)),120) + " ..."
+	subj$ = "Комментарий: " + Left(CStr(it.Text),120) + " ..."
+	Call SendNotice1 (doc, subj$, "Для прочтения комментария перейдите по ссылке ", "", "",  listSend)
+	doc.recipient = listSend
+	Call doc.save(True,True)
+	Call ws.Viewrefreshbydbid(db.replicaid, "(ChatV)")
+	Call ws.Currentdocument.Refreshhideformulas
+
+	Exit Sub	
+ErrHnd:  
+	MsgBox CStr(Erl) + ": " + Error
+	Call errh(" ChatNew ")
+End Sub

@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='utf-8'?>
+<note class='view' xmlns='http://www.lotus.com/dxl' version='9.0' maintenanceversion='1.2'
+ replicaid='43257E3C0027808F'>
+<noteinfo noteid='2ae' unid='C3257903002CA9CC44257992001E242B' sequence='15'>
+<created><datetime>20120127T092913,39+04</datetime></created>
+<modified><datetime>20150519T161035,77+03</datetime></modified>
+<revised><datetime>20150519T161035,76+03</datetime></revised>
+<lastaccessed><datetime>20150519T161035,77+03</datetime></lastaccessed>
+<addedtofile><datetime>20150519T161035,75+03</datetime></addedtofile></noteinfo>
+<updatedby><name>CN=Lotus Designer/O=PKC</name></updatedby>
+<wassignedby><name>CN=Lotus Designer/O=PKC</name></wassignedby>
+<item name='$FormulaClass' sign='true'><text>1</text></item>
+<item name='$TITLE' sign='true'><text>ForNewVer</text></item>
+<item name='$Index' sign='true'><text/></item>
+<item name='$Formula' summary='true' sign='true'><formula compiled='true'>
+XAECAAwAAgAkMGkAAwACABQABABGb3JtBQAEAEZvcm0DAAUAJAAfAAQAAgAEAAkABAAkMEZvcm0k
+Q29uZmxpY3QkUkVGAAQABAAAAMQABQAEAEZvcm0BAAUARG9jSW4ACgIFAAQARm9ybQEABgBEb2NP
+dXQKAh0CBQAEAEZvcm0BAAMAT1JEAAoCHQIFAAQARm9ybQEABQBtZW1vcwAKAh0CBQAEAEZvcm0B
+AAcARG9jUHJvYwAKAh0CBQAEAEZvcm0BAAcAVmlzYU9SRAAKAh0CBQAEAEZvcm0BAAkAY29tcGxh
+aW50AAoCHQIFAAQARm9ybQEABwBEb2NQcm9jAAoCHQIEAGwAHgEcAgMABwBOAEcACUwxUzNTNVM2
+UzdTOFMxMFMxMVMxMlMxNFMxNVMxNlMxN1MxOFMxOVMyMFMyM1MyNFMyNVMyN1MyOFMzMFMzMVMz
+MlMzNlMA
+</formula></item>
+<item name='$Collation' summary='true'>
+<rawitemdata type='2'>
+DwABAABEAGYAAAACACQw
+</rawitemdata></item>
+<item name='$ViewFormat' summary='true' sign='true'>
+<rawitemdata type='5'>
+AQACAAIACAAAAFZDAQACAAEADgAAAL0AAQAACgAAAAAAAAAAAAICAAAAVkMAAAQAAAAWAAAAUAAB
+AAAKAAAAAAAAAAAAAgIAAAAkMCMOAAIADAACACQwaQADAEZvcm0WAAIAFAAEAEZvcm0FAAQARm9y
+bQMAJgABAAAAAQEACQEAAAoBAQ4KAAABAK0rAQABAAEAAAAAAAAAAABXQwEBAAkAAAAAAAAAAAAA
+AAAAAAAAAQAAAAAAAAD//wAAAAAAAAAAAAAAAAAAV0MBAQAJAAAAAAAAAAAAAAAAAAAAAAAABAAA
+AAAA//8AAAAAAAAAAAAAAAAAAEIAAAAAAAEA////AAUA////AAEAAAAAAAAAAAAAAAAAAQD///8A
+AQD///8AAAABAAAAAAABAAAAAAABAAAAAAAAAAgAAAAAAAEA
+</rawitemdata></item>
+<item name='$Comment' sign='true'><text/></item>
+<item name='$Flags'><text>PY</text></item>
+<item name='$DesignerVersion'><text>8.5</text></item></note>
+

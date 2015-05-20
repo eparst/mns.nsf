@@ -1,0 +1,353 @@
+'++LotusScript Development Environment:2:5:(Options):0:72
+Option Public
+Option Declare
+
+
+'++LotusScript Development Environment:2:5:(Forward):0:1
+Declare Sub MakeImageNew()
+Declare Function GetFileName()
+Declare Function  FromMainFLS(db, FieldName$)
+Declare Sub errhFLS(q)
+
+'++LotusScript Development Environment:2:5:(Declarations):0:10
+'/////////For new file open dlg////////////
+Const OFN_READONLY = &H1
+Const OFN_OVERWRITEPROMPT = &H2
+Const OFN_HIDEREADONLY = &H4
+Const OFN_NOCHANGEDIR = &H8
+Const OFN_SHOWHELP = &H10
+Const OFN_ENABLEHOOK = &H20
+Const OFN_ENABLETEMPLATE = &H40
+Const OFN_ENABLETEMPLATEHANDLE = &H80
+Const OFN_NOVALIDATE = &H100
+Const OFN_ALLOWMULTISELECT = &H200
+Const OFN_EXTENSIONDIFFERENT = &H400
+Const OFN_PATHMUSTEXIST = &H800
+Const OFN_FILEMUSTEXIST = &H1000
+Const OFN_CREATEPROMPT = &H2000
+Const OFN_SHAREAWARE = &H4000
+Const OFN_NOREADONLYRETURN = &H8000
+Const OFN_NOTESTFILECREATE = &H10000
+Const OFN_NONETWORKBUTTON = &H20000
+Const OFN_NOLONGNAMES = &H40000 ' force no long names for 4.x modules
+Const OFN_EXPLORER = &H80000 ' new look commdlg
+Const OFN_NODEREFERENCELINKS = &H100000
+Const OFN_LONGNAMES = &H200000 ' force long names for 3.x modules
+' // Define type
+Type OPENFILENAME
+	lStructSize As Long
+	hwndOwner As Long
+	hInstance As Long
+	lpstrFilter As String
+	lpstrCustomFilter As String
+	nMaxCustFilter As Long
+	nFilterIndex As Long
+	lpstrFile As String
+	nMaxFile As Long
+	lpstrFileTitle As String
+	nMaxFileTitle As Long
+	lpstrInitialDir As String
+	lpstrTitle As String
+	flags As Long
+	nFileOffset As Integer
+	nFileExtension As Integer
+	lpstrDefExt As String
+	lCustData As Long
+	lpfnHook As Long
+	lpTemplateName As String
+End Type
+' // Win32 API functions
+Declare Function GetOpenFileName Lib "comdlg32.dll" Alias "GetOpenFileNameA" (pOpenfilename As OPENFILENAME) As Long
+Declare Function GetActiveWindow Lib "user32.dll" () As Long
+Declare Function WNetGetConnection32 Lib "MPR.DLL" Alias "WNetGetConnectionA" (ByVal lpszLocalName As String, ByVal lpszRemoteName As String, lSize As Long) As Long
+' // Error messages etc
+Const constIINIFILEError = "The current machine has not been set up properly (no Notes directory in INI file)."
+Const constCustomTitle = "Browse..."
+Const NO_ERROR = 0
+Const lBUFFER_SIZE = 255
+'/////
+Dim AusZug$
+
+'++LotusScript Development Environment:2:2:MakeImageNew:1:8
+Sub MakeImageNew()
+	On Error GoTo ErrHnd
+	Dim ws As New NotesUIWorkspace, sess As New NotesSession, imagedoc As NotesDocument, pardoc As NotesDocument, curdoc As NotesDocument, lastdir$
+	Dim curdb As NotesDatabase, uidoc As NotesUIDocument, newuidoc As NotesUIDocument, TempDir$, path$, fileName$, attach As Variant, jj As Long
+	Dim it1 As NotesItem, item As NotesItem
+	Set uidoc = ws.CurrentDocument
+	Set curdb = sess.CurrentDatabase
+	TempDir$ = Environ("Temp") + "\lotusattach\"
+	If Dir(StrLeftBack(TempDir$,"\"), 16) <> "" Then
+		path$ = TempDir$ + "*.*"
+		fileName$ = Dir$(path$, 0)
+		Do While fileName$ <> ""
+	   		Kill TempDir$ + fileName$
+	   		fileName$ = Dir$()
+		Loop
+	Else
+		MkDir StrLeftBack(TempDir$,"\")
+	End If
+	Set curdoc = ws.CurrentDocument.Document ' curdb.GetDocumentByUNID(unid$)
+	If curdoc.IsNewNote Then
+		If MessageBox ( "Для вложения необходимо сохранить текущий документ! Сохранить?"  , 4 + 32 + 256 + 0  , "Сохранить!" ) = 6 Then
+			Call curdoc.Save(True,True)
+		Else
+			MsgBox "продолжение не возможно..."
+			Exit Sub
+		End If
+	End If	
+	If InStr(sess.Platform,"Windows") = 0 Then
+'		If sess.UserName = "CN=Окуньков Игорь Георгиевич/O=PKC" Then
+'			attach = GetFileName()
+'		else
+			attach = ws.OpenFileDialog( True, "Выберите вложение",,lastdir$) ' Environ("MyDocuments")
+'		End if
+'			MsgBox "Для " + sess.Platform + " данаая функция находится в разработке" : Exit sub
+'		End if
+	Else
+			attach = GetFileName() ' 	
+	End If
+	If IsEmpty(attach) Then  Exit Sub ' Msgbox "ничего не выбрано..." :
+	jj = 1
+	If IsArray(attach) Then
+			If attach(0) = "" Then  Exit Sub
+		Else
+			If attach = "" Then  Exit Sub
+		End If 
+	ForAll pp In attach
+		If UBound(attach) > 0 Then 
+			path$ = attach(0) + "\" + attach(jj)
+		Else
+			path$ = pp
+		End If	
+		If Len(StrLeftBack(path$,"\")) > 80 Or Len(StrRightBack(path$,"\")) > 80 Then
+			fileName$ = StrRightBack(path$,"\")
+			If Len(fileName$) > 80 Then fileName$ = Left(StrRightBack(path$,"\"),72) + "___." + StrRightBack(path$,".")
+			FileCopy path$ , TempDir$ +	fileName$  ' StrRightBack(path,"\")
+			path$ = TempDir$	+ fileName$ 'StrRightBack(path,"\")
+		End If
+		Set imagedoc = curdb.CreateDocument 
+		If AusZug$ = "1" Then Call imagedoc.ReplaceItemValue("auszug",AusZug$)		
+'%%%%%%%ДОСТУП
+		Set it1 = imagedoc.ReplaceItemValue("AuthorNames_Rep",FromMainFLS(curdb,"servgroup"))
+		Call it1.AppendToTextList("Servers_PKC")
+		Call it1.AppendToTextList("Cluster_Strong")
+		it1.IsAuthors = True
+		imagedoc.DefaultReaders = "[CanReadAllDocs]"
+		imagedoc.DefaultEditors = "[CanEditAllDocs]"
+		Set item =  imagedoc.GetFirstItem( "DefaultReaders" )
+		item.IsReaders = True
+		Set item =  imagedoc.GetFirstItem( "DefaultEditors" )
+		item.IsAuthors = True
+		Set it1 = imagedoc.ReplaceItemValue("AuthorNames",curdoc.AuthorNames)
+		it1.IsAuthors = True	
+		Set it1 = imagedoc.ReplaceItemValue("Editors",curdoc.Editors)
+		Set it1 = imagedoc.ReplaceItemValue("ReaderNames",curdoc.ReaderNames)
+		it1.IsReaders = True	
+		Set it1 = imagedoc.ReplaceItemValue("Readers",curdoc.Readers)
+'%%%%%%%	
+		imagedoc.imagedocUnid = curdoc.UniversalID 
+		imagedoc.imagedocDbRepl = curdoc.ParentDatabase.ReplicaID
+		imagedoc.AttachType = curdoc.Form(0)
+		imagedoc.Form = "fimage"
+		If Not imagedoc.Save(True,True) Then MsgBox "вложение не может быть приложено!!" : Exit Sub
+'%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	
+		Dim rtitem As NotesRichTextItem	
+		Dim rtitem3 As NotesRichTextItem	
+		Dim object As NotesEmbeddedObject
+		If Not imagedoc.HasItem("body") Then
+			Set rtitem3 = New NotesRichTextItem( imagedoc, "body" )	
+		Else
+			Set rtitem3 = imagedoc.GetFirstItem("body" )	
+		End If
+		Set object = rtitem3.EmbedObject( EMBED_ATTACHMENT, "", path$)
+		imagedoc.InView = object.Name		
+		rtitem3.Update
+
+		Call imagedoc.Save(True, True)
+		jj = jj + 1
+		If jj = UBound(attach) + 1 Then Exit ForAll
+	End ForAll
+'	Msgbox "Файлы добавлены"	
+	Call ws.ViewRefresh		
+'	Call ws.CurrentDocument.RefreshHideFormulas
+	Exit Sub
+ErrHnd:
+'	If Error = 4225 Then
+'		MessageBox Error$ ,16,"Ошибка!"	
+'		Exit Sub
+'	Else
+		Call errhFLS(" click Добавить вложение с диска in sub MakeImageNew ")		
+'	End If
+	End Sub
+	
+
+
+'++LotusScript Development Environment:2:1:GetFileName:1:8
+Function GetFileName()
+On Error GoTo ErrHnd
+%REM
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+TITLE:	 sub GetFileName
+PURPOSE:	 Gets the full path and name of whatever file is selected, using a Win32 common dialog
+box. This version works in both Win95 and Win2000.
+CREATED:	 Benedict Poole - 15 November 2001
+PARAMETERS:	Returns the full path and file name as a string to calling routine.
+MODIFIED:	 -
+***** Dialog box with notesui not as nice... - Stefanie Sullivan
+NOTES:	 Uses GetOpenFileName Win32 API call. We use this rather than the NotesUIWorkspace
+"OpenFileDialog" method, because that is new to R5 of Notes & we still need to support
+a mixed environment.
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+%ENDREM
+	Dim session As New NotesSession, strDirectory As String, ofn As OPENFILENAME, lngReturnValue As Long, hwnd As Long, strszFile As String * 1024
+	Dim strszFileTitle As String * 1024, strVBNull As String, pos As Integer
+	GetFileName = ""
+'	On Error GoTo lblErrs
+	strVBNull = Chr(0)
+	strszFileTitle = String(Len(strszFileTitle), strVBNull)
+	strszFile = String(Len(strszFile), strVBNull)
+	hwnd = GetActiveWindow()
+' // Dialog box structure
+	ofn.lStructSize = Len(ofn)
+	ofn.hwndOwner = hwnd
+' // Define the filters. Here we're choosing Notes files only. See the API help on the web for a run-down of
+' // what you can do here
+'	ofn.lpstrFilter = "Notes databases (*.nsf)" & strVBNull & "*.nsf" & strVBNull & strVBNull
+	Dim szFilter As String
+'	szFilter = "All Files |*.*|Word Document |*.doc|Text Files|*.txt|"
+	ofn.lpstrFilter = "All Files (*.*)"
+'	ofn.lpstrFilter = szFilter
+	ofn.nFilterIndex = 1
+	ofn.lpstrFile= strszFile
+	ofn.nMaxFile = Len(strszFile) + 1 	'(_|_)
+	ofn.lpstrFileTitle = strszFileTitle
+	ofn.nMaxFileTitle = Len(strszFileTitle) + 1
+' // We need the user's default Notes data path - this could be "C:\Lotus\Notes\Data" or "C:\Notes\Data"
+' // depending on installation, therefore grab the value from the relevant INI file variable
+'	strDirectory = session.GetEnvironmentString("Directory", True)
+'	If strDirectory = "" Then
+'	 Messagebox constIINIFILEError, 0, constCustomTitle
+'	 Goto lblEnd
+'	End If
+'	ofn.lpstrInitialDir = strDirectory
+	ofn.lpstrInitialDir = "t:"
+	ofn.lpstrCustomFilter = String(256, 0)
+	ofn.nMaxCustFilter = 256
+'Or OFN_LONGNAMES 
+'	ofn.Flags = OFN_PATHMUSTEXIST Or OFN_FILEMUSTEXIST Or OFN_HIDEREADONLY
+	ofn.Flags = OFN_PATHMUSTEXIST Or OFN_FILEMUSTEXIST Or OFN_HIDEREADONLY Or OFN_LONGNAMES Or OFN_ALLOWMULTISELECT Or OFN_EXPLORER '! (_|_)
+	ofn.lpstrTitle = constCustomTitle
+	lngReturnValue = GetOpenFileName(ofn)
+' // Possibly add back commextdlg code
+	If lngReturnValue = 0 Then GoTo lblEnd
+	If lngReturnValue Then
+' // Extract the file name
+		'GetFileName = Left(ofn.lpstrFile, InStr(ofn.lpstrFile, strVBNull) -1)
+'--------------------------------------------
+	  Dim strRet$ 
+	  strRet$ = ofn.lpstrFile
+	  pos = InStr(strRet, Chr(0) & Chr(0))
+	  If pos > 0 Then strRet = Mid(strRet$, 1, pos)
+	  If Right(strRet$, 1) = Chr(0) Then strRet$ = Left(strRet$, Len(strRet$) - 1)
+	  GetFileName = Split(Replace(strRet$, Chr(0), Chr(13)),Chr(13))
+'	  MsgBox Replace(GetFileName, Chr(0), " ")
+  '--------------------------------------------
+'		Msgbox GetFileName + " to ->" + "D:\Temp"	+ Strrightback(GetFileName,"\")
+	End If
+lblEnd:
+	Exit Function
+lblErrs:
+	MsgBox CStr(Err) & ": " & Error$, 0, constCustomTitle
+ErrHnd:
+	Call errhFLS(constCustomTitle + " Function GetFileName() ")		
+End Function
+
+'++LotusScript Development Environment:2:1:FromMainFLS:1:8
+Function  FromMainFLS(db, FieldName$)
+	On Error GoTo ErrHnd
+	Dim ss As New NotesSession, server As String, dbName As String, qqqq$, doc As NotesDocument, dc As NotesDocumentCollection
+'	Set db = ss.CurrentDatabase
+	server = db.Server
+	dbName = db.FilePath     
+	
+     '----- Открываем базу данных "Настройка "
+	If Right( dbName, 3 ) = "nsf" Then
+		dbName = Mid( dbName, 1, Len( dbName ) - Len( db.FileName ) ) & "main.nsf"
+	ElseIf Right( dbName, 3 ) = "NSF" Then
+		dbName = Mid( dbName, 1, Len( dbName ) - Len( db.FileName ) ) & "MAIN.NSF"
+	End If 
+	Dim db1 As NotesDatabase
+	Set db1 = New NotesDatabase(server, dbName)
+	If Not db1.IsOpen Then MsgBox "Не найдена база данных настроек! Отслеживание статуса не возможно!" : Exit Function
+	qqqq$ ="Form = ""DbSetup"" & @UpperCase(DbFile) = @UpperCase(""" + db.FileName + """)"
+	Set dc = db1.Search(qqqq$ , Nothing, 0)
+'	Set dc = db1.Search("Form = ""DbSetup"" & @UpperCase(DbFile) = @UpperCase(""" + db.FileName + """)", Nothing, 0)
+	Set doc = dc.GetFirstDocument
+	If doc Is Nothing Then Call errhFLS(" Function FromMain  Не найден документ настроек! ") : Exit Function
+	FromMainFLS = doc.getitemvalue(FieldName$)(0)		
+
+	Exit Function
+ErrHnd: Call errhFLS(" Function FromMainFLS ")
+End Function
+
+'++LotusScript Development Environment:2:2:errhFLS:1:8
+Sub errhFLS(q)
+	If Err = 0 Or Err = 20 Then Exit Sub
+	Dim s As New NotesSession
+	Dim db As NotesDatabase
+	Dim 	maildoc As NotesDocument
+	Dim it As NotesRichTextItem
+	Set db = s.CurrentDatabase
+	Set maildoc = db.CreateDocument
+	maildoc.form="Memo"
+	Dim it2 As NotesItem
+	Set it2 = maildoc.ReplaceItemValue("sendto","vveprinskiy@roscomsys.ru") 
+'	Set it2 = maildoc.ReplaceItemValue("sendto","")
+'	Call it2.AppendToTextList("adminsystem@roscomsys.ru")
+	If Left( StrLeft(db.FilePath,"\"),3) <> "SED" Or  Left( StrLeft(db.FilePath,"\"),3) <> "STMP" Then 
+'		Call it2.AppendToTextList("Admins_" + Mid( Strleft(db.FilePath,"\"),5))
+	Else
+'		Set it2 = maildoc.ReplaceItemValue("sendto","vveprinskiy@roscomsys.ru") ' '(_/_) 
+	End If
+'	maildoc.sendto="vveprinskiy@roscomsys.ru,adminsystem@roscomsys.ru"
+	Set it = New NotesRichTextItem( maildoc, "body" )
+'%%%%%%%%%%%%%%%%	
+	If Not s.CurrentAgent Is Nothing Then 
+		q = q+ " CurrentAgent = " + s.CurrentAgent.name
+		Print q + " line 17" + db.Server + " error в базе " + db.FilePath + " -> " + db.Title + " " + CStr(Err) + " " + Error$ + " строка: " + CStr(Erl) + " " + q 
+	Else
+		Dim ws As New NotesUIWorkspace
+		If Not ws Is Nothing Then
+			If Not ws.CurrentDocument Is Nothing Then
+				If Not ws.CurrentDocument.Document Is Nothing Then
+					q = ", Form = " + ws.CurrentDocument.Document.GetItemValue("Form")(0)  + q
+					Call it.AppendDocLink(ws.CurrentDocument.Document, ws.CurrentDocument.Document.UniversalID)
+				End If
+			Else
+				If Not ws.CurrentView.View Is Nothing Then
+					q = ", CurrentView = " + ws.CurrentView.View.Name  + q
+					Call it.AppendDocLink(ws.CurrentView.View, ws.CurrentView.View.Name)
+				End If
+			End If
+		End If
+	End If
+'%%%%%%%%%%%%%%%%	
+	If InStr(LCase(q),"function searchd@") > 0 And Err = 4005 Then MessageBox "Попробуйте не указывать в строке поиска ковычки и другие спец. символы",16,"Ошибка!" : GoTo qNext
+	'If InStr(q,"Не удается создать файл") > 0 And Err = 4005 Then MessageBox "Попробуйте закрыть все внешние приложения или перезагруить "_
+	'			&"компьютер и попровабоать еще раз."&chr(10)&chr(13)&"Причиной проблемы может также быть наличие спец. символов в названии файла",16,"Ошибка!" : GoTo qNext
+	'If InStr(q,"Не найден объект") > 0 And Err = 4005 Then MessageBox "Текущее содержимое буфера скопировать нельзя.",16,"Ошибка!" : GoTo qNext
+	If Err <> 0 Then MessageBox CStr(Err) + " " + Error$ + " строка: " + CStr(Erl),16,"Ошибка!"
+	If Erl = 66 And Err = 4067 Then GoTo qNext
+	If InStr(LCase(q),LCase("Файл не существует")) > 0 And Err = 4067 Then GoTo qNext
+	If InStr(LCase(q),LCase("Instance member EXTRACTFILE does not exist")) > 0 And Err = 182 Then GoTo qNext
+	If Err	<> 4000 And Err	<> 4005 And Err <> 20 Then ' не отсылаем лог
+			q = q  + db.Server + " error в базе " + db.FilePath + " -> " + db.Title + " " + CStr(Err) + " " + Error$ + " строка: " + CStr(Erl)
+			maildoc.subject = q 
+			Call it.AppendText(Chr(10)+Chr(13)+q)
+			Call maildoc.Send( False)
+	End If
+
+qNext:
+	If Err <> 0 Then Resume 0'Next
+End Sub

@@ -1,0 +1,215 @@
+'++LotusScript Development Environment:2:5:(Options):0:74
+Option Declare
+
+'++LotusScript Development Environment:2:5:(Forward):0:1
+Declare Public Class LNProgressbar
+Declare Class Progressbar
+
+'++LotusScript Development Environment:2:5:(Declarations):0:10
+'NEMProgress... (Declared as a Class)
+'The class LNProgressbar should be pasted into the Declarations in a Lotus script library.
+'Declare Function OSTranslate Lib "nnotes.dll" (Byval mode As Integer, Byval strIn As String, Byval lenIn As Integer, Byval strOut As String, Byval lenOut As Integer) As Integer
+
+Declare Function OSTranslate Lib "nnotes" _
+(Byval mode As Integer, Byval strIn As String, Byval lenIn As Integer, Byval strOut As String, Byval lenOut As Integer) As Integer
+
+Declare  Function NEMProgressBegin Lib "nnotesws.dll" ( Byval wFlags As Integer ) As Long
+Declare  Sub NEMProgressDeltaPos Lib "nnotesws.dll" ( Byval hwnd As Long, Byval dwIncrement As Long )
+Declare  Sub NEMProgressEnd Lib "nnotesws.dll" ( Byval hwnd As Long )
+Declare  Sub NEMProgressSetBarPos Lib "nnotesws.dll" ( Byval hwnd As Long, Byval dwPos As Long)
+Declare  Sub NEMProgressSetBarRange Lib "nnotesws.dll" ( Byval hwnd As Long, Byval dwMax As Long )
+Declare  Sub NEMProgressSetText Lib "nnotesws.dll" ( Byval hwnd As Long, Byval pcszLine1 As String, Byval pcszLine2 As String )
+
+'==========================================================================
+'					 						     	CONSTANTS
+'==========================================================================
+Const NPB_TWOLINE = 3
+Const NPB_ONELINE = 2
+Const OS_TRANSLATE_NATIVE_TO_LMBCS		= 0
+Const OS_TRANSLATE_LMBCS_TO_NATIVE		= 1
+Const OS_TRANSLATE_LOWER_TO_UPPER		= 3
+Const OS_TRANSLATE_UPPER_TO_LOWER		= 4
+Const OS_TRANSLATE_UNACCENT					= 5
+Const OS_TRANSLATE_LMBCS_TO_ASCII_DOS	= 11
+Const OS_TRANSLATE_LMBCS_TO_ASCII			= 13
+
+'==========================================================================
+'					 							CLASS LNProgressbar
+'==========================================================================
+Public Class LNProgressbar
+	hwnd As Long	
+	Private m_maxPos As Long
+	Private m_curPos As Long
+'----------------------------------------------------------------------------------------------------------------------------------
+	Property Get CurrentPosition As Long
+		CurrentPosition = m_curPos
+	End Property
+'----------------------------------------------------------------------------------------------------------------------------------
+	Sub New(SecondLineVisible As Integer)
+          'Set-up the progress bar on the screen
+		If SecondLineVisible Then
+			hwnd = NEMProgressBegin(NPB_TWOLINE)
+		Else
+			hwnd = NEMProgressBegin(NPB_ONELINE)
+		End If
+		m_curPos = 0
+	End Sub
+'----------------------------------------------------------------------------------------------------------------------------------
+	Sub SetText(FirstLineText As String,SecondLineText As String)
+          'Display the text in progress bar
+		Dim m_text1 As String, m_text2 As String, s1 As String, s2 As String, strlen As Integer
+		m_text1 = FirstLineText
+		m_text2 = SecondLineText
+		s1 = Space (Len (m_text1) * 2)
+		strlen = OSTranslate (OS_TRANSLATE_NATIVE_TO_LMBCS, m_text1, Len (m_text1), s1, Len (s1))
+		s1 = Left (s1, strlen)
+		s2 = Space (Len (m_text2) * 2)
+		strlen = OSTranslate (OS_TRANSLATE_NATIVE_TO_LMBCS, m_text2, Len (m_text2), s2, Len (s2))
+		s2 = Left (s2, strlen)
+		NemProgressSetText hwnd, s1, s2
+'		NemProgressSetText hwnd, FirstLineTExt,SecondLineText
+	End Sub
+'----------------------------------------------------------------------------------------------------------------------------------
+	Sub SetProgressPos(Progresspos As Long)
+		m_curPos = Progresspos
+		NEMProgressSetBarPos hwnd, ProgressPos
+	End Sub
+'----------------------------------------------------------------------------------------------------------------------------------
+	Sub SetNextPos()
+		m_curPos = m_curPos + 1
+		If ( m_curPos <= m_maxPos ) Then  Me.SetProgressPos( m_curPos )
+	End Sub
+'----------------------------------------------------------------------------------------------------------------------------------
+	Sub SetNextPosition( in_FirstLineText As String,in_SecondLineText As String )
+		Call Me.SetNextPos()
+		Call Me.SetText( in_FirstLineText, in_SecondLineText )
+	End Sub
+'----------------------------------------------------------------------------------------------------------------------------------
+	Sub SetProgressRange(ProgressMaxElements As Long)
+          'Set-up the max elements in the progress bar, if you have
+          'a list with 230 elements then set the MAX to 230 elements.
+          'For every element you proceed increase the SetProgressPos
+          'by one to reached 230
+		m_maxPos = ProgressMaxElements
+		NEMProgressSetBarRange hwnd, ProgressMaxElements
+	End Sub
+'----------------------------------------------------------------------------------------------------------------------------------
+	Sub DeltaPos(DPos As Long)
+          ' This function adds the number in DPOS to the current ProgressPos
+		NEMProgressDeltaPos hwnd, DPos
+	End Sub
+'----------------------------------------------------------------------------------------------------------------------------------
+	Sub Delete
+          'Terminate the progress bar on the screen
+		NEMProgressEnd hwnd
+	End Sub
+'----------------------------------------------------------------------------------------------------------------------------------
+End Class
+
+'==========================================================================
+'					 							CLASS LNProgressbar
+'==========================================================================
+Class Progressbar
+'----------------------------------------------------------------------------------------------------------------------------------	
+	Private m_hwnd As Long
+	Private m_maxPos As Long
+	Private m_position As Long
+	Private m_isSecondLine As Boolean
+	Private m_isVisible As Boolean
+'----------------------------------------------------------------------------------------------------------------------------------	
+	Private Sub load()
+		If ( m_isSecondLine ) Then
+			m_hwnd = NEMProgressBegin( NPB_TWOLINE )
+		Else
+			m_hwnd = NEMProgressBegin( NPB_ONELINE )
+		End If
+		Call NEMProgressSetBarRange( m_hwnd, Me.maxPos )
+	End Sub
+'----------------------------------------------------------------------------------------------------------------------------------	
+	Private Sub unload()
+		If ( m_isVisible ) Then
+			Call NEMProgressEnd( m_hwnd )
+		End If
+	End Sub
+'----------------------------------------------------------------------------------------------------------------------------------	
+	Sub New( in_maxPos As Long, in_isSecondLine As Boolean )
+		m_maxPos = in_maxPos
+		m_position = 0
+		m_isSecondLine = in_isSecondLine
+		m_isVisible = False
+	End Sub
+'----------------------------------------------------------------------------------------------------------------------------------	
+	Property Get isVisible As Boolean
+		isVisible = m_isVisible
+	End Property
+'----------------------------------------------------------------------------------------------------------------------------------	
+	Property Get maxPos As Long
+		maxPos = m_maxPos
+	End Property
+'----------------------------------------------------------------------------------------------------------------------------------	
+	Property Get position As Long
+		position = m_position
+	End Property
+'----------------------------------------------------------------------------------------------------------------------------------	
+	Property Set isVisible As Boolean
+		If ( m_isVisible = isVisible ) Then 	
+			Exit  Property
+		Elseif ( isVisible ) Then 
+			Call Me.load()
+		Else
+			Call Me.unload()
+		End If
+		m_isVisible = isVisible
+	End Property
+'----------------------------------------------------------------------------------------------------------------------------------	
+	Property Set maxPos As Long
+		m_maxPos = maxPos
+		If ( m_isVisible ) Then
+			NEMProgressSetBarRange m_hwnd, Me.maxPos
+		End If
+	End Property
+'----------------------------------------------------------------------------------------------------------------------------------	
+	Property Set position As Long
+		If ( position <= Me.maxPos ) Then
+			m_position = position
+			If ( m_isVisible ) Then
+				Call NEMProgressSetBarPos( m_hwnd, Me.position )
+			End If
+		End If
+	End Property
+'----------------------------------------------------------------------------------------------------------------------------------
+	Sub nullNextPosition()
+		Me.position = Me.position + 1
+	End Sub
+'----------------------------------------------------------------------------------------------------------------------------------
+	Sub DeltaPos(DPos As Long)
+		If ( m_isVisible ) Then
+			Call NEMProgressDeltaPos( m_hwnd, DPos )
+		End If
+	End Sub
+'----------------------------------------------------------------------------------------------------------------------------------
+	Sub setText( in_firstLine As String, in_secondLine As String)
+		If ( m_isVisible ) Then
+			Dim m_text1 As String, m_text2 As String, s1 As String, s2 As String, strlen As Integer
+			m_text1 = in_firstLine
+			m_text2 = in_secondLine
+			s1 = Space (Len (m_text1) * 2)
+			strlen = OSTranslate (OS_TRANSLATE_NATIVE_TO_LMBCS, m_text1, Len (m_text1), s1, Len (s1))
+			s1 = Left (s1, strlen)
+			s2 = Space (Len (m_text2) * 2)
+			strlen = OSTranslate (OS_TRANSLATE_NATIVE_TO_LMBCS, m_text2, Len (m_text2), s2, Len (s2))
+			s2 = Left (s2, strlen)
+			NemProgressSetText m_hwnd, s1, s2
+		End If
+	End Sub
+'----------------------------------------------------------------------------------------------------------------------------------	
+	Sub nextPosition( in_firstLine As String, in_secondLine As String )
+		Call Me.nullNextPosition()
+		Call setText( in_firstLine, in_secondLine )
+	End Sub
+'----------------------------------------------------------------------------------------------------------------------------------	
+	Sub Delete
+		Call Me.unload()
+	End Sub
+'----------------------------------------------------------------------------------------------------------------------------------	
+End Class

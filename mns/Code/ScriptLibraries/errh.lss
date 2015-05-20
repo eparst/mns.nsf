@@ -1,0 +1,125 @@
+'++LotusScript Development Environment:2:5:(Options):0:74
+Option Public
+
+'++LotusScript Development Environment:2:5:(Forward):0:1
+Declare Sub errh(q)
+Declare Sub AddPerson(nam$, AccessType, tmpdoc) '(_/_) @Created 2012.04.17 by Eparst
+
+'++LotusScript Development Environment:2:5:(Declarations):0:2
+
+'++LotusScript Development Environment:2:2:errh:1:8
+Sub errh(q)
+	If Err = 0 Or Err = 20 Then Exit Sub
+	Dim s As New NotesSession
+	Dim db As NotesDatabase
+	Dim 	maildoc As NotesDocument
+	Dim it As NotesRichTextItem
+	Set db = s.CurrentDatabase
+	Set maildoc = db.CreateDocument
+	maildoc.form="Memo"
+	Dim it2 As NotesItem
+	Set it2 = maildoc.ReplaceItemValue("sendto","vveprinskiy@roscomsys.ru") 
+'	Set it2 = maildoc.ReplaceItemValue("sendto","")
+'	Call it2.AppendToTextList("adminsystem@roscomsys.ru")
+	If Left( StrLeft(db.FilePath,"\"),3) <> "SED" Or  Left( StrLeft(db.FilePath,"\"),3) <> "STMP" Then 
+'		Call it2.AppendToTextList("Admins_" + Mid( Strleft(db.FilePath,"\"),5))
+	Else
+'		Set it2 = maildoc.ReplaceItemValue("sendto","vveprinskiy@roscomsys.ru") ' '(_/_) 
+	End If
+'	maildoc.sendto="vveprinskiy@roscomsys.ru,adminsystem@roscomsys.ru"
+	Set it = New NotesRichTextItem( maildoc, "body" )
+'%%%%%%%%%%%%%%%%	
+	If Not s.CurrentAgent Is Nothing Then 
+		q = q+ " CurrentAgent = " + s.CurrentAgent.name
+		Print q + " line 17" + db.Server + " error в базе " + db.FilePath + " -> " + db.Title + " " + CStr(Err) + " " + Error$ + " строка: " + CStr(Erl) + " " + q 
+	Else
+		Dim ws As New NotesUIWorkspace
+		If Not ws Is Nothing Then
+			If Not ws.CurrentDocument Is Nothing Then
+				If Not ws.CurrentDocument.Document Is Nothing Then
+					q = ", Form = " + ws.CurrentDocument.Document.GetItemValue("Form")(0)  + q
+					Call it.AppendDocLink(ws.CurrentDocument.Document, ws.CurrentDocument.Document.UniversalID)
+				End If
+			Else
+				If Not ws.CurrentView.View Is Nothing Then
+					q = ", CurrentView = " + ws.CurrentView.View.Name  + q
+					Call it.AppendDocLink(ws.CurrentView.View, ws.CurrentView.View.Name)
+				End If
+			End If
+		End If
+	End If
+'%%%%%%%%%%%%%%%%	
+	If InStr(LCase(q),"function searchd@") > 0 And Err = 4005 Then MessageBox "Попробуйте не указывать в строке поиска ковычки и другие спец. символы",16,"Ошибка!" : GoTo qNext
+	'If InStr(q,"Не удается создать файл") > 0 And Err = 4005 Then MessageBox "Попробуйте закрыть все внешние приложения или перезагруить "_
+	'			&"компьютер и попровабоать еще раз."&chr(10)&chr(13)&"Причиной проблемы может также быть наличие спец. символов в названии файла",16,"Ошибка!" : GoTo qNext
+	'If InStr(q,"Не найден объект") > 0 And Err = 4005 Then MessageBox "Текущее содержимое буфера скопировать нельзя.",16,"Ошибка!" : GoTo qNext
+	If Err <> 0 Then MessageBox CStr(Err) + " " + Error$ + " строка: " + CStr(Erl),16,"Ошибка!"
+	If Erl = 66 And Err = 4067 Then GoTo qNext
+	If InStr(LCase(q),LCase("Файл не существует")) > 0 And Err = 4067 Then GoTo qNext
+	If InStr(LCase(q),LCase("Instance member EXTRACTFILE does not exist")) > 0 And Err = 182 Then GoTo qNext
+	If Err	<> 4000 And Err	<> 4005 And Err <> 20 Then ' не отсылаем лог
+			q = q  + db.Server + " error в базе " + db.FilePath + " -> " + db.Title + " " + CStr(Err) + " " + Error$ + " строка: " + CStr(Erl)
+			maildoc.subject = q 
+			Call it.AppendText(Chr(10)+Chr(13)+q)
+			Call maildoc.Send( False)
+	End If
+
+qNext:
+	If Err <> 0 Then Resume 0'Next
+End Sub
+
+'++LotusScript Development Environment:2:2:AddPerson:1:8
+Sub AddPerson(nam$, AccessType, tmpdoc) '(_/_) @Created 2012.04.17 by Eparst
+	On Error GoTo ErrHnd	
+	Dim ss As New NotesSession
+	Dim ws As New NotesUIWorkspace
+	Dim dbt As NotesDatabase
+	Dim itQinf As NotesItem
+	Dim itQadr As NotesItem
+	Set SN2 =  New NotesName(nam$)	
+	addr$ = SN2.Canonical
+	Select Case AccessType
+		Case "w" :
+			itQinfName$ = "EDITORS"
+			itQadrName$ = "AuthorNames"
+		Case "r" :
+			itQinfName$ = "READERS"
+			itQadrName$ = "ReaderNames"
+	End Select
+'(_/_)	
+	If ws.Currentdocument.Document.Hasitem(itQadrName$) Then
+		Set itQadr = ws.Currentdocument.Document.Getfirstitem(itQadrName$)
+		Call ws.Currentdocument.Document.ReplaceItemValue(itQadrName$,FullTrim(ArrayUnique(ArrayAppend(ws.Currentdocument.Document.Getitemvalue(itQadrName$),addr$))))		
+	Else
+		Set itQadr = New NotesItem(ws.Currentdocument.Document, itQadrName$, addr$) 
+		Select Case AccessType
+		Case "w" :
+			itQadr.IsAuthors = True
+		Case "r" :
+			itQadr.Isreaders = True
+	End Select
+	End If
+'(_/_)	
+If tmpdoc = "" Then
+	' можно еще искать не в справочнике, а в адресной книге
+	Set dbt = New NotesDatabase( ss.CurrentDatabase.Server, StrLeftBack(ss.CurrentDatabase.FilePath,"\") + "\firm.nsf" )
+	If  Not dbt.IsOpen Then Call errh(" dbt Is Not Open  ") : Exit Sub
+	Dim view As NotesView
+	Set view = dbt.getview("(byNotesAddressCA)") 
+	If view Is Nothing Then Call errh(" view (byNotesAddressCA) is nothing "): Exit Sub
+	Set tmpdoc = view.GetDocumentByKey(addr$,True)		
+End If
+If Not tmpdoc Is Nothing Then
+inf$ = tmpdoc.Caller(0) + "!" + tmpdoc.Firm(0) + "!" + tmpdoc.CallerTitle(0) + "!" + tmpdoc.NotesAddress(0) + "!0!"+ Replace(Replace(Replace(Replace(tmpdoc.Depatr(0),","," "),";"," "),Chr(10)," "),Chr(13)," ") + "!-!-!-!-"
+'(_/_)	
+If ws.Currentdocument.Document.Hasitem(itQinfName$) Then
+	Set itQinf = ws.Currentdocument.Document.Getfirstitem(itQinfName$)
+	Call ws.Currentdocument.Document.ReplaceItemValue(itQinfName$,FullTrim(ArrayUnique(ArrayAppend(ws.Currentdocument.Document.Getitemvalue(itQinfName$),inf$ ))))	
+Else
+	Set itQinf = New NotesItem(ws.Currentdocument.Document, itQinfName$, inf$) 
+End If
+End If ' If Not tmpdoc Is Nothing Then
+	Exit Sub
+ErrHnd:  
+	Call errh(" AddPerson ")
+End Sub

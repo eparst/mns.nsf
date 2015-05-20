@@ -1,0 +1,114 @@
+'++LotusScript Development Environment:2:5:(Options):0:74
+Option Public
+
+'++LotusScript Development Environment:2:5:(Forward):0:1
+Declare Sub errh20(q, errdoc As NotesDocument)
+Declare Sub PrintLn2(rtitem As NotesRichTextItem, qText As String, vk As Integer, b As Boolean, ss As NotesSession)
+Declare Sub DumpDocument2Mail2(errdoc As NotesDocument, body As NotesRichTextItem)
+Declare Sub PrintLink2(rtitem As NotesRichTextItem, Text As String, doc As NotesDocument, vk As Integer)
+
+'++LotusScript Development Environment:2:5:(Declarations):0:2
+
+'++LotusScript Development Environment:2:2:errh20:1:8
+Sub errh20(q, errdoc As NotesDocument)
+	If Err = 0 Or Err = 20 Then Exit Sub
+	Dim s As New NotesSession, db As NotesDatabase, maildoc As NotesDocument, it As NotesRichTextItem, it2 As NotesItem
+	
+	Set db = s.CurrentDatabase
+	Set maildoc = db.CreateDocument
+	maildoc.form="Memo"	
+	Set it2 = maildoc.ReplaceItemValue("sendto","vveprinskiy@roscomsys.ru") 
+'	Set it2 = maildoc.ReplaceItemValue("sendto","")
+'	Call it2.AppendToTextList("adminsystem@roscomsys.ru")
+'	maildoc.sendto="vveprinskiy@roscomsys.ru,adminsystem@roscomsys.ru"
+	Set it = New NotesRichTextItem( maildoc, "body" )
+'%%%%%%%%%%%%%%%%	
+	If Not s.CurrentAgent Is Nothing Then 
+		q = q+ " CurrentAgent = " + s.CurrentAgent.name
+		Print q + " line 17" + db.Server + " error в базе " + db.FilePath + " -> " + db.Title + " " + CStr(Err) + " " + Error$ + " строка: " + CStr(Erl) + " " + q 
+	Else
+		Dim ws As New NotesUIWorkspace
+		If Not ws Is Nothing Then
+			If Not ws.CurrentDocument Is Nothing Then
+				If Not ws.CurrentDocument.Document Is Nothing Then
+					q = ", Form = " + ws.CurrentDocument.Document.GetItemValue("Form")(0)  + q
+					Call it.AppendDocLink(ws.CurrentDocument.Document, ws.CurrentDocument.Document.UniversalID)
+				End If
+			Else
+				If Not ws.CurrentView Is Nothing Then
+					If Not ws.CurrentView.view Is Nothing Then
+						q = ", CurrentView = " + ws.CurrentView.View.Name  + q
+						Call it.AppendDocLink(ws.CurrentView.View, ws.CurrentView.View.Name)
+					End if
+				End If
+			End If
+		End If
+	End If
+'%%%%%%%%%%%%%%%%	
+%REM
+	If InStr(q,"Function searchD@") > 0 And Err = 4005 Then MessageBox "Попробуйте не указывать в строке поиска ковычки и другие спец. символы",16,"Ошибка!" : GoTo qNext
+	If Err <> 0 Then MessageBox CStr(Err) + " " + Error$ + " строка: " + CStr(Erl),16,"Ошибка!"
+	If InStr(q,"Файл не существует") > 0 And Err = 4067 Then GoTo qNext
+	If InStr(q,"Instance member EXTRACTFILE does not exist") > 0 And Err = 182 Then GoTo qNext
+	If Err	<> 4005 And Err <> 20 Then ' не отсылаем лог Err	<> 4000 And
+%END REM
+			q = q  + db.Server + " error в базе " + db.FilePath + " -> " + db.Title + " " + CStr(Err) + " " + Error$ + " строка: " + CStr(Erl)
+			maildoc.subject = q 
+			Call it.AppendText(Chr(10)+Chr(13)+q)
+			If Not errdoc Is Nothing Then				
+				Call it.AddNewLine(1)
+				Call it.Appendtext(" >>>> Dump Notes Documents: ")
+				Call it.AddNewLine(1)
+				Call DumpDocument2Mail2(errdoc, it)
+			End if
+			Call maildoc.Send( False)
+qNext:
+'	If Err <> 0 Then Resume 0'Next
+	Exit Sub
+End Sub
+
+'++LotusScript Development Environment:2:2:PrintLn2:1:8
+Sub PrintLn2(rtitem As NotesRichTextItem, qText As String, vk As Integer, b As Boolean, ss As NotesSession)
+	Set richStyle = ss.CreateRichTextStyle
+	richStyle.Bold = b
+	Call rtitem.AppendStyle(richStyle)
+	Call rtitem.Appendtext(qText)
+	Call rtitem.AddNewLine(vk)
+End Sub
+
+'++LotusScript Development Environment:2:2:DumpDocument2Mail2:1:8
+Sub DumpDocument2Mail2(errdoc As NotesDocument, body As NotesRichTextItem)
+	Dim session As New NotesSession, db As NotesDatabase, collection As NotesDocumentCollection, b As Boolean
+		
+'	Set db = session.CurrentDatabase
+'	Set collection = db.UnprocessedDocuments
+'	Dim memo As New NotesDocument(db)
+'	memo.Form="Memo"
+'	memo.SendTo = "vveprinskiy@roscomsys.ru" 'session.UserName
+'	memo.Subject="Dump Notes Documents"
+'	Dim body As New NotesRichTextItem(memo,"body")
+	
+'	For j = 1 To collection.Count
+'		Set doc = collection.GetNthDocument( j )
+		PrintLink2 body, "Документ ("+errdoc.NoteID+") ->", errdoc, 2
+		ForAll i In errdoc.Items
+			If i.IsAuthors=True Or i.IsReaders=True Then b=True Else b=False
+			Call PrintLn2(body, i.Name+" : "+i.Text, 1, b, session)
+		End ForAll
+		PrintLn2 body, "-----------------------------------------------", 2, False, session
+'		Call session.UpdateProcessedDoc( doc )
+'	Next
+'	Call memo.Send(False,False)
+End Sub
+
+'++LotusScript Development Environment:2:2:PrintLink2:1:8
+Sub PrintLink2(rtitem As NotesRichTextItem, Text As String, doc As NotesDocument, vk As Integer)
+	Call rtitem.Appendtext(Text)
+	If Not(doc Is Nothing) Then
+		Call rtitem.AppendDocLink(doc, doc.ParentDatabase.Title)
+	Else
+		Call rtitem.Appendtext(" none ")
+	End If
+	
+	Call rtitem.AddNewLine(vk)
+End Sub

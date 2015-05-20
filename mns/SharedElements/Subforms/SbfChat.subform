@@ -1,0 +1,34 @@
+<?xml version='1.0' encoding='utf-8'?>
+<note class='form' xmlns='http://www.lotus.com/dxl' version='9.0' maintenanceversion='1.2'
+ replicaid='43257E3C0027808F'>
+<noteinfo noteid='1326' unid='CE71B2E52E91455543257E4A0049B8FC' sequence='2'>
+<created><datetime>20150519T162514,84+03</datetime></created>
+<modified><datetime>20150519T162701,14+03</datetime></modified>
+<revised><datetime>20150519T162701,13+03</datetime></revised>
+<lastaccessed><datetime>20150519T162701,14+03</datetime></lastaccessed>
+<addedtofile><datetime>20150519T162515,13+03</datetime></addedtofile></noteinfo>
+<updatedby><name>CN=Lotus Designer/O=PKC</name></updatedby>
+<wassignedby><name>CN=Lotus Designer/O=PKC</name></wassignedby>
+<item name='$HTMLCode' sign='true'>
+<rawitemdata type='1'>
+X/8QAAIADwAHAAAAAAAAAA==
+</rawitemdata></item>
+<item name='$TITLE'><text>SbfChat</text></item>
+<item name='$Comment' sign='true'><text>для всех БД кроме СОГЛАСОВАНИЯ</text></item>
+<item name='$Info' sign='true'>
+<rawitemdata type='1'>
+hhgBAIAAAAAAgAAAAQABAP///wAQAAAA
+</rawitemdata></item>
+<item name='$Flags'><text>CUAx3Pr</text></item>
+<item name='$DesignerVersion'><text>8.5.3</text></item>
+<item name='$$ScriptName' summary='false' sign='true'><text>SbfChat</text></item>
+<item name='$Body' sign='true'>
+<rawitemdata type='1'>
+gQKC/1oAAQAAAAAAAAAAAKAFAACgBQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAEABAAAAAJSHAAAAAAAAAAAAAAAAAQAAAAQAAACDBAEAhf8IAAEAAArdBgAArf9x/yoA
+AAAAAAMAAgAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAKENoYXRWKQCt/xQAEwAIAAAACAAoQ2hhdFYp
+AOr/PgATAABEAABdN4EPAQAACgAAAAAAAAAAAQAACgEAAAoAAAUA////AAEAAAAAAAAAAAAAAAAA
+AAAAAAAA7f84AKIBAAAAAAAAGAAAAAAAAAAAAAAAAAAAAAAAAAAYAAAACgCQAFYBAwAHAAwABQAJ
+MFMwRQCuAt4GAACuAIX/CAABAAAK
+</rawitemdata></item></note>
+

@@ -1,0 +1,1272 @@
+'++LotusScript Development Environment:2:5:(Options):0:74
+Option Public
+
+'++LotusScript Development Environment:2:5:(Forward):0:1
+Declare Class DocumentAccess2
+Declare Function Word( Source As String, Count As Integer, Separator As String )
+Declare Function WordLeft( Source As String, Count As Integer, Separator As String ) As String
+Declare Function WordRight( Source As String, Count As Integer, Separator As String ) As String
+
+'++LotusScript Development Environment:2:5:(Declarations):0:10
+Private Const CREATE_ERR = 1001
+Private Const EMPL_DOC_ERR = 1002
+
+Public Const EP_AUTHORS = 1
+Public Const EP_READERS = 2
+
+' Класс для работы по управлению списком доступа к документу сотрудников
+' из базы "Кадры" или базы "Фирмы"
+
+' МЕТОДЫ
+' Конструктор: 											New(...)
+' Добавление сотрудника: 							AddEmployee( empl As NotesDocument, ToDocument As Variant )
+' Удаление сотрудника: 								DeleteEmployee( empl As NotesDocument, ToDocument As Variant )
+' Удаление сотрудника по номеру в списке: 	DelEmployeeByNth( row As Integer, ToDocument As Variant )
+' Добавить всех сотрудников отдела: 				AddDepart
+' Добавить ответственных лиц						AddResponsibles
+' Добавить список вышестоящих лиц:				AddChiefs
+' Запись сотрудников в документ:					SetAccess
+' Заполнение списка доступа для просмотра:	SetViewList( FieldName As String )
+' Добавить группу										AddGroup( group As NotesDocument )
+' Удалить группу											DeleteGroup( group As NotesDocument )
+' Добавляет папку										AddFolder( FolderName As String, EInfo As String )
+' Обновить информацию из полей документа	Update
+' Cбор информации о сотрудниках					UpdateEmployees( FieldList As String )
+' Удалить все												DeleteAll( ToDocument As Variant )
+' Добавить готовую строку с информацией		AddEmployeeLine( EmplLine As String, ToDocument As Variant ) /943
+' Ообновить строку с информацией				UpdateEmployeeLine( NumLine As Integer, NewLine As String, ToDocument As Variant )
+' Получить строку с информацией					GetEmployeeLine( NumLine As Integer ) as String
+' Конвертировать информацию в одно поле		ConvertToField( EList As String, EOrg As String, EStuff As String, EAddr As String, EDB As String, AList As String, AStuff As String, AOrg As String, AAddr As String, ToDocument As Variant, RemoveList As Variant )
+' Получение доп. информации о сотрудниках	GetFieldsValues( FieldList As String ) As Variant
+' Обновляет информацию о сотрудниках			UpdateByType( TypeDoc As String, ToDocument As Variant )
+' Возвращает документ сотрудника				GetDocumentByInfo( info As String ) As NotesDocument
+' Добавление списка ответственных лиц			UpdateResponsibles( FieldList As String, RespInfo As String, RespAddr As String )
+
+
+Class DocumentAccess2
+	Public Document As NotesDocument	' Документ
+	Public EmplInfo As String				' Название поля с информацией о сотрудниках
+	Public NotesAddr As String				' Название поля с Notes-адресами
+	Public Count As Integer					' Количество сотрудников
+	Public Cursor As Integer					' Позиция указателя на строку массива с информацией
+	Public Server As String					' Сервер базы данных, в которой хранится документ
+	
+	Public DBFirm As String					' Полный путь к базе "Фирмы"
+	Public DBMain As String					' Полный путь к базе настроек
+	Public Employees() As String			' Информация о сотрудниках
+	Private Addresses() As String			' Адреса редакторов документа
+	Public ExtraParam As Integer			' Дополнительный параметр (исользуется в некоторых фунциях)
+	
+	
+	Public FirmDB As NotesDatabase
+	Public MainDB As NotesDatabase
+	
+	Private ses As NotesSession
+	
+' Конструктор
+	' doc - документ, для которого формируется список доступа сотрудников.
+	' EInfo - название поля, содержащего информацию о сотруднике
+	' NAddr - название поля, содержащего Notes-адреса доступа к документу
+	Sub New( doc As NotesDocument, EInfo As String, NAddr As String )
+		Dim dbname As String
+		Dim value As Variant
+		
+		If doc Is Nothing Then
+			Error CREATE_ERR, "Ошибка: неправильно введены параметры."
+			Exit Sub
+		End If
+		
+		Set ses = New NotesSession
+		Count = -1
+		EmplInfo = EInfo
+		NotesAddr = NAddr
+		Set Document = doc
+		Server = ses.CurrentDatabase.Server
+		dbname = ses.CurrentDatabase.FilePath
+		dbname = Left( dbname, Len( dbname ) - Len( ses.CurrentDatabase.FileName ) )
+		
+		' Базы с сотрудниками
+		If Right( ses.CurrentDatabase.FileName, 3 ) = "nsf" Then
+			
+			DBFirm = dbname + "firm.nsf"
+			DBMain = dbname + "main.nsf"
+		Else
+			
+			DBFirm = dbname + "FIRM.NSF"
+			DBMain = dbname + "MAIN.NSF"
+		End If
+		
+		' Количество сотрудников
+		If doc.HasItem( EInfo ) Then
+			value = doc.GetItemValue( EInfo )
+			If value(0) = "" Then
+				Count = -1
+			Else
+				Count = Ubound( value ) - Lbound( value )
+			End If
+		End If
+		If Count < 0 Then 
+			' Создаем поле.
+			Call doc.ReplaceItemValue( EInfo, Employees )
+			Exit Sub
+		End If
+		Redim Preserve Employees(Count) As String
+		
+		' Заполнение массивов информацией о сотрудниках
+		For n% = 0 To Ubound( value )
+			If value(n%) = "" Then
+				Employees(n%) = "-"
+			Else
+				Employees(n%) = value(n%)
+			End If
+		Next
+		Cursor = n%
+		' Список доступа к документу
+		If doc.HasItem( NAddr ) Then
+			value = doc.GetItemValue( NAddr )
+			Redim Addresses(Ubound( value ))
+			For i% = 0 To Ubound( value )
+				Set nn = New NotesName( value(i%) )
+				Addresses(i%) = nn.Abbreviated
+			Next
+		End If
+		
+		ExtraFlag = 0
+		
+	End Sub
+' Добавление сотрудника из адресной книги в список доступа к документу ***New***
+	Sub AddEmployeeFromAddressBook( empl As String, ToDocument As Variant )
+		Dim info As String
+		
+		If empl="" Then Exit Sub
+		
+		info = EmployeeInfoFromAddressBook( empl )
+		
+		If FindEmployee( WordLeft( info, 5, "!" ) ) > -1 Then Exit Sub
+		Count = Count + 1
+		Redim Preserve Employees(Count) As String
+		Employees(Count) = info
+		Cursor = Count
+		
+		If ToDocument Then
+			AddrUpdate
+			ArraysToDocument
+		End If
+	End Sub
+' Добавление сотрудника в список доступа к документу
+	Sub AddEmployee( empl As NotesDocument, ToDocument As Variant )
+		Dim info As String
+		Dim form As String
+		
+		If empl Is Nothing Then Exit Sub
+		form = empl.Form(0)
+		If Form <> "Person" And Form <> "Sovmestitel" And Form <> "CP" And Form <> "Фирмы" And _
+		form <> "MainStructure" And form <> "Structure"  Then
+			Error EMPL_DOC_ERR, "Ошибка: неправильно уаказан документ сотрудника."
+			Exit Sub
+		End If
+'%%%%%%%%%%%%%%%%%%%%%%%%
+		info = EmployeeInfo( empl )
+'%%%%%%%%%%%%%%%%%%%%%%%%		
+		If empl.Form(0) = "MainStructure" Or empl.Form(0) = "Structure" Then '<----- Если документ структура
+			' Проверить что есть в списке. 
+			Cursor = FindEmployee( WordLeft( info, 2, "!" ) )
+			If Cursor < 0 Then '<----- Не найдено подразделение
+				AddEmployeeLine info, False
+			Else
+				If Word( info, 10, "!" ) = "4" Or Word( Employees(Cursor), 4, "!" ) = "-" Then '<----- Если добавляется все подразделение
+					Employees(Cursor) = info
+				End If
+			End If
+		Else
+			If FindEmployee( WordLeft( info, 5, "!" ) ) > -1 Then Exit Sub
+			Count = Count + 1
+			Redim Preserve Employees(Count) As String
+			Employees(Count) = info
+			Cursor = Count
+		End If
+		
+		If ToDocument Then
+			AddrUpdate
+			ArraysToDocument
+		End If
+	End Sub
+	
+' Поиск сотрудника в списке
+	Function FindEmployee( EInfo As String ) As Integer
+		FindEmployee = -1
+		
+		For i% = 0 To Count
+			If Instr( 1, Employees(i%), EInfo, 1 ) > 0 Then
+				FindEmployee = i%
+				Exit Function
+			End If
+		Next
+	End Function
+	
+' Удаление сотрудника из списка доступа к документу
+	Sub DeleteEmployee( empl As NotesDocument, ToDocument As Variant )
+		Dim row As Integer
+		Dim info As String
+		Dim form As String
+		
+		form = empl.Form(0)
+		If Form <> "Person" And Form <> "Sovmestitel" And Form <> "CP" And Form <> "Фирмы"_ 
+		And Form <> "MainStructure" And Form <> "Structure" Then
+			Error EMPL_DOC_ERR, "Ошибка: неправильно уаказан документ сотрудника."
+			Exit Sub
+		End If
+		
+		If Count < 0 Then
+'			Msgbox "В списке нет записей.", 48, "Предупреждение"
+			Exit Sub
+		Elseif Employees(0) = "" Then 
+'			Msgbox "В списке нет записей.", 48, "Предупреждение"
+			Exit Sub
+		End If
+		
+		info = EmployeeInfo( empl )
+		row = FindEmployee( WordLeft( info, 5, "!" ) )
+		
+		If row < 0 Then Exit Sub
+		Cursor = row
+		
+		For i% = row To Count - 1
+			Employees(i%) = Employees(i% + 1)
+		Next
+		
+		Count = Count - 1
+		If Count < 0 Then 
+			Count = -1
+			Redim Employees(0) As String
+		Else
+			Redim Preserve Employees(Count) As String
+		End If
+		
+		If ToDocument Then
+			AddrUpdate
+			ArraysToDocument
+		End If
+	End Sub
+	
+' Удаление сотрудника из списка доступа к документу по номеру в списке
+	Sub DelEmployeeByNth( row As Integer, ToDocument As Variant )
+		
+		If row < 0 Then Exit Sub
+		Cursor = row
+		
+		For i% = row To Count - 1
+			Employees(i%) = Employees(i% + 1)
+		Next
+		
+		Count = Count - 1
+		If Count < 0 Then 
+			Redim Employees(0) As String
+		Else
+			Redim Preserve Employees(Count) As String
+		End If
+		
+		If ToDocument Then
+			AddrUpdate
+			ArraysToDocument
+		End If
+	End Sub
+	
+	
+	
+	
+' Добавть в список доступа автора документа или текущего пользователя	
+	Sub AddAuthor
+		Dim dc As NotesDocumentCollection
+		Dim doc As NotesDocument
+		Dim nn As NotesName
+		Dim author As String
+		Dim view As NotesView
+		
+		Set nn = New NotesName( ses.UserName )
+		author = nn.Abbreviated
+		
+		If Document.HasItem( "Source" ) And Document.Source(0) <> "1" Then
+			If FirmDB Is Nothing Then Set FirmDB = New NotesDataBase( Server, DBFirm )
+			Set view = FirmDB.GetView( "ByNotesAddress" )
+			Set doc = view.GetDocumentByKey( author, True )
+			
+		Else
+			
+			If doc Is Nothing Then
+				If FirmDB Is Nothing Then Set FirmDB = New NotesDataBase( Server, DBFirm )
+				Set view = FirmDB.GetView( "ByNotesAddress" )
+				Set doc = view.GetDocumentByKey( author, True )
+			End If
+		End If
+		
+		If doc Is Nothing Then Exit Sub
+		Call AddEmployee( doc, True )
+	End Sub
+	
+	
+	
+' Запись сотрудников в документ (без сохранения)
+	Sub SetAccess
+		AddrUpdate
+		ArraysToDocument
+	End Sub
+	
+' Сохранить документ со списком доступа
+	Sub SaveDocument
+		Call Document.Save( False, False )
+	End Sub
+	
+' Заполнение списка доступа для просмотра
+	Function SetViewList As Variant
+		Dim v() As String
+		Dim empl As String
+		Dim assist As String
+		
+		n% = 0
+		For i% = 0 To Count
+			empl = Word( Employees(i%), 1, "!" )
+			assist = Word( Employees(i%), 6, "!" )
+			If empl <> "" Then
+				Redim Preserve v(n%)
+				If assist <> "-" And assist <> "" Then
+					v(n%) = empl + " -> " + assist
+				Else
+					v(n%) = empl
+				End If
+				n% = n% + 1
+			End If
+		Next
+		
+		SetViewList = v
+	End Function
+	
+' Добавить группу
+	Sub AddGroup( group As NotesDocument )
+		Dim info As String
+		
+		Dim empl As NotesDocument
+		Dim viewk As NotesView
+		Dim viewf As NotesView
+		
+		If group.Form(0) <> "TemplatePass" Then Exit Sub
+		If Not group.HasItem( "SignInfo" ) Then Exit Sub
+		
+		
+		If FirmDB  Is Nothing Then Set FirmDB = New NotesDataBase( Server, DBFirm )
+		Set viewf = FirmDB.GetView( "ByNotesAddress" )
+		
+		For i% = 0 To Ubound( group.SignInfo )
+			info = group.SignInfo(i%)
+			If FindEmployee( WordLeft( info, 5, "!" ) ) < 0 Then
+				If Word( info, 5, "!" ) = "0" Then
+					Set empl = viewf.GetDocumentByKey(  Word( info, 4, "!" ) )
+					Call AddEmployee( empl, False )
+				Elseif Val( Word( info, 10, "!" ) ) < 2 Then
+					Set empl = viewk.GetDocumentByKey( Word( info, 4, "!" ) )
+					Call AddEmployee( empl, False )
+				Else
+					Call AddEmployeeLine( info, False )
+				End If
+				
+				Cursor = Count
+			End If
+		Next
+		
+		AddrUpdate
+		ArraysToDocument
+	End Sub
+	
+' Удалить группу
+	Sub DeleteGroup( group As NotesDocument )
+		Dim info As String
+		Dim num As Integer
+		
+		If group.Form(0) <> "TemplatePass" Then Exit Sub
+		If Not group.HasItem( "SignInfo" ) Then Exit Sub
+		
+		For i% = 0 To Ubound( group.SignInfo )
+			info = group.SignInfo(i%)
+			num = FindEmployee( Word( WordLeft( info, 2, "!" ), 1, "\" ) )
+			If num > -1 Then DelEmployeeByNth num, False
+		Next
+		
+		AddrUpdate
+		ArraysToDocument
+	End Sub
+	
+' Копирует содержимое полей с информацией о сотруднике в текущий обект.
+	Sub CopyEmployees( EInfo As String, NAddr As String )
+		
+		If Not Docuement.HasItem( EInfo ) Then Exit Sub
+		
+		' Информация о сотрудниках
+		value = Document.GetItemValues( EInfo )
+		Redim Employees(Ubound( value ))
+		
+		For i% = 0 To Ubound( value )
+			Employees(i%) = value(i%)
+		Next
+		
+		' Notes-адреса
+		If Document.HasItem( NAddr ) Then Document.RemoveItem( NAddr )
+		
+		AddrUpdate
+		ArraysToDocument
+	End Sub
+	
+' Добавляет сотрудников из списка доступа к папке
+	' FolderName - название папки
+	' EInfo - название поля, содержащего информацию о сотрудниках
+	Sub AddFolder( FolderName As String, EInfo As String )
+		Dim view As NotesView
+		Dim folder As NotesDocument
+		
+		Dim vfirm As NotesView
+		Dim key As String
+		Dim doc As NotesDocument
+		
+		' Поиск документа настройки папки.
+		If MainDB Is Nothing Then Set maindb = New NotesDatabase( Server, DBMain )
+		If Not maindb.IsOpen Then
+			Msgbox "База настроек системы  не найдена.", 16, "Ошибка"
+			Exit Sub
+		End If
+		Set view = maindb.GetView( "Folders1" )
+		Set folder = view.GetDocumentByKey( FolderName, True )
+		If folder Is Nothing Then
+'			Msgbox "Папка в системе не зарегистрирована.", 48, "Сообщение"
+			Exit Sub
+		End If
+		
+		' Базы данных с сотрудниками.
+		
+		If FirmDB Is Nothing Then Set firmdb = New NotesDatabase( Server, DBFirm )
+		If firmdb.IsOpen Then Set vfirm = firmdb.GetView( "ByPersonAndFirm" )
+		
+		' Поиск и добавление сотрудников в список
+		elist = folder.GetItemValue( EInfo )
+		For i% = 0 To Ubound( elist )
+			kod$ = Word( elist(i%), 10, "!" )
+			If kod$ = "-" Or kod$ = "0" Or kod$ = "1" Then
+				key = Word( elist(i%), 2, "!" )
+				If key <> "-" Then key = Word( key, 1, "\" )
+				key = Word( elist(i%), 1, "!" ) + "!" + key
+				
+				Set doc = vfirm.GetDocumentByKey( key, True )
+				
+				If Not doc Is Nothing Then Call AddEmployee( doc, False )
+			Else
+				Call AddEmployeeLine( elist(i%), False )
+			End If
+		Next
+		
+		AddrUpdate
+		ArraysToDocument
+	End Sub
+	
+' ************ NEW *************
+' Подготовка строки с информацией о сотруднике из адресной книги. Разделитель: восклицательный знак (!) ***New***
+	Function EmployeeInfoFromAddressBook( empl As String ) As String
+		Dim fio As String
+		Dim org As String
+		Dim stuff As String
+		Dim address As String
+		Dim info As String
+		
+		UserName = Evaluate("@Name([Abbreviate];""" + empl + """)")
+		
+		FirstName = GetValueFromAddressBook(UserName(0),"FirstName")
+		MiddleInitial = GetValueFromAddressBook(UserName(0),"MiddleInitial")
+		LastName = GetValueFromAddressBook(UserName(0),"LastName")
+		If LastName <> "" Then		LastName = Strtoken(LastName, " ",1) + " " + Left(Strtoken(LastName, " ",2),1) + "." + Left(Strtoken(LastName, " ",3),1) + "."
+'		NotesAddress = GetValueFromAddressBook(UserName(0),"FullName") '''''' Vitaly 2010.10.15
+		NotesAddress = GetValueFromAddressBook(UserName(0),"FullName")
+		Dim SN As New notesname(NotesAddress)
+'		Msgbox NotesAddress
+		NotesAddress = sn.Abbreviated
+'		Msgbox NotesAddress
+		AlternateName = GetValueFromAddressBook(UserName(0),"AlternateName")
+		CompanyName = GetValueFromAddressBook(UserName(0),"CompanyName")
+		JobTitle = GetValueFromAddressBook(UserName(0),"JobTitle")
+		
+		If AlternateName <> "" Then
+			fio = AlternateName
+		Elseif FirstName <> "" Or LastName <> "" Then
+			fio = LastName'  + " " + MiddleInitial + " " + FirstName ' 2010.10.15
+		Else
+			fio = empl
+		End If
+		
+		If NotesAddress <> "" Then
+			address = NotesAddress
+		Else
+			address = empl
+		End If
+		
+		org = CompanyName
+		stuff = JobTitle
+		info = "!2"
+		
+		If fio = "" Then fio = "-"
+		If org = "" Then org = "-"
+		If stuff = "" Then stuff = "-"
+		
+		EmployeeInfoFromAddressBook = fio + "!" + org  + "!" + stuff  + "!" + address + info  + "!-!-!-!-!-"
+		
+	End Function	
+' Подготовка строки с информацией о сотруднике. Разделитель: восклицательный знак (!)
+	Function EmployeeInfo( empl As NotesDocument ) As String
+		Dim fio As String
+		Dim org As String
+		Dim stuff As String
+		Dim address As String
+		Dim info As String
+		Dim form As String
+		
+		Dim view As NotesView
+		Dim doc As NotesDocument
+		Dim typedoc As String
+		
+		form = empl.Form(0)
+		If Form <> "Person" And Form <> "Sovmestitel" And Form <> "CP" And Form <> "Фирмы" And _
+		form <> "MainStructure" And form <> "Structure" And form <> "Group" Then
+			Msgbox "Неправильно уаказан документ сотрудника.", 48 + 4096, "Ошибка"
+			Exit Function
+		End If
+		
+		' Подготовить строку с информацией о сотруднике
+		If Form = "Person" Or Form = "Sovmestitel" Then
+			fio = empl.p1(0)
+			org = empl.way(0)
+'			n% = Instr( 1, org, "\" ) - 1
+'			If n% > 0 Then org = Left( org, n% )
+			stuff = empl.p10(0)
+			address = empl.NotesAddress(0)
+			If address = "" Then address = "-"
+			info = "!1"
+		Elseif Form = "CP" Then
+			fio = empl.Caller(0)
+			org = empl.Firm(0)
+			stuff = empl.CallerTitle(0)
+			address = empl.NotesAddress(0)
+			depatr = empl.Depatr(0)
+			If address = "" Then address = "-"
+			info = "!0"
+		Elseif Form = "Фирмы" Then
+			fio = empl.Firm(0)
+			org = empl.Firm(0)
+			address = "-"
+			info = "!0"
+		Elseif Form = "MainStructure" Or Form = "Structure" Then
+'			fio = empl.way(0)
+'			org = empl.Group(0)
+			fio = WordRight( empl.way(0), 1, "\" )
+			org = empl.way(0)
+			' Формирование Notes-адресов
+			If empl.HasItem( "StructureAddr" ) And empl.StructureAddr(0) <> "" Then '<----- Группа ответственных лиц
+				v = empl.StructureAddr
+				flag% = 2
+				fio = fio + " (ответственные)"
+			Elseif empl.HasItem( "MainAddr" ) And empl.MainAddr(0) <> "" Then '<----- Список ответственных лиц
+				v = empl.MainAddr
+				flag% = 3
+				fio = fio + " (ответственные)"
+			Elseif empl.HasItem( "StructureGroup" ) And empl.StructureGroup(0) <> "" Then '<----- Группа всех сотрудников подразделения
+				v = empl.StructureGroup
+				flag% = 4
+				fio = fio + " (все сотрудники)"
+			Else
+				flag% = 5
+			End If
+			If Not Isempty( v ) Then
+				Forall addr In v
+					address = address + "," + addr
+				End Forall
+			End If
+			If address <> "" Then 
+				address = Right( address, Len( address ) - 1 )
+			Else
+				address = "-"
+			End If
+			info = "!0"
+		End If
+		If fio = "" Then fio = "-"
+		If org = "" Then org = "-"
+		If stuff = "" Then stuff = "-"
+		If depatr = "" Then depatr = "-"
+		info = fio + "!" + org  + "!" + stuff  + "!" + address + info + "!" + depatr
+		
+		' Тип документа
+		typedoc = Document.TypeDoc(0)
+		
+		' Заместитель
+		If Not empl.HasItem( "Assistant" ) Or empl.Assistant(0) = "" Or typedoc = "" Then
+			If flag% > 1 Then
+				info = info + "!-!-!-!" + Cstr( flag% )
+			Else
+				info = info + "!-!-!-!-"
+			End If
+		Else
+			' Поиск типа документа в списке доступа зама.
+			flag% = 0
+			Forall s In empl.DocTypes
+				If s = typedoc Then
+					flag% = 1
+					Exit Forall
+				End If
+			End Forall
+			
+			If flag% = 1 Then ' <--- Если документ найден в списке доступа, то добавить информацыю о нем
+				fio = empl.Assistant(0)
+				stuff = empl.AssistantTitle(0)
+				org = empl.AssistantFirm(0)
+				address = empl.AssistantAddress(0)
+				
+				If fio = "" Then fio = "-"
+				If org = "" Then org = "-"
+				If stuff = "" Then stuff = "-"
+				If address = "" Then address = "-"
+				
+				info = info + "!" + fio + "!" + org + "!" + stuff + "!" + address
+				
+				If empl.CallerNotify(0) = "1" Then
+					info = info + "!1"
+				Else
+					info = info + "!0"
+				End If
+				
+			Else
+				info = info + "!-!-!-!-!-"
+			End If
+		End If
+		
+		EmployeeInfo = info
+	End Function
+	
+' Обновление списка Notes-адресов
+	Private Sub AddrUpdate
+		Dim n As Integer
+		Dim EmplAddr As String
+		Dim AssistAddr As String
+		Dim flag As String
+		
+		n = 0
+		
+		Redim Addresses(0)
+		If Count < 0 Then Exit Sub
+		
+		Forall empl In Employees
+			EmplAddr = Word( empl, 4, "!" )
+			AssistAddr = Word( empl, 8, "!" )
+			flag = Word( empl, 10, "!" )
+			
+			If AssistAddr = "-" Or AssistAddr = "" Then
+				' Добавить основного сотрудника
+				If EmplAddr <> "-" And EmplAddr <> "" Then
+					
+					i% = 1
+					s$ = Word( EmplAddr, i%, "," )
+					While s$ <> "" And s$ <> s1$
+						Redim Preserve Addresses(n)
+						Addresses(n) = s$
+						s1$ = s$
+						n = n + 1
+						i% = i% + 1
+						s$ = Word( EmplAddr, i%, "," )
+					Wend
+					
+				End If
+				
+			Else
+				
+				If flag = "1"  Then
+					' Уведомить основного сотрудника
+					If EmplAddr <> "-" And EmplAddr <> "" Then
+						
+						i% = 1
+						s$ = Word( EmplAddr, i%, "," )
+						While s$ <> "" And s$ <> s1$
+							Redim Preserve Addresses(n)
+							Addresses(n) = s$
+							s1$ = s$
+							n = n + 1
+							i% = i% + 1
+							s$ = Word( EmplAddr, i%, "," )
+						Wend
+						
+					End If
+				End If
+				' Добавить заместителя
+				If AssistAddr <> "-" And AssistAddr <> "" Then
+					
+					i% = 1
+					s$ = Word( AssistAddr, i%, "," )
+					While s$ <> "" And s$ <> s1$
+						Redim Preserve Addresses(n)
+						Addresses(n) = s$
+						s1$ = s$
+						n = n + 1
+						i% = i% + 1
+						s$ = Word( AssistAddr, i%, "," )
+					Wend
+					
+				End If
+			End If
+			
+		End Forall
+		
+	End Sub
+	
+' Процедура сбора информации о сотрудниках из разных полей в текущее информационное поле.
+	' FieldList - список названий полей через запятую с информацией о сотрудниках
+	Sub UpdateEmployees( FieldList As String )
+		Dim i As Integer
+		Dim field As String
+		Dim n As Integer
+		Dim pos As Integer
+		
+		If FieldList = "" Then Exit Sub
+		
+		i = 1
+		field = Word( FieldList, i, "," )
+		Do 
+			S$ = field
+			
+			If Document.HasItem( field ) Then
+				v = Document.GetItemValue( field )
+				
+				For n = 0 To Ubound( v )
+					
+					Cursor = FindEmployee( WordLeft( v(n), 2, "!" ) )
+					
+					If Cursor < 0 Then 
+						Count = Count + 1
+						Redim Preserve Employees(Count)
+						Employees(Count) = v(n)
+					Else
+						If Val( Word( Employees(Cursor), 10, "!" ) ) > 1 Then '<----- Если структура
+							
+							If Word( v(n), 10, "!" ) = "4" Then '<----- Если все подразделение
+								Employees(Cursor) = v(n)
+							End If
+						Else
+							
+							If FindEmployee( WordLeft( v(n), 5, "!" ) ) < 0 Then 
+								Count = Count + 1
+								Redim Preserve Employees(Count)
+								Employees(Count) = v(n)
+							End If
+							
+						End If
+					End If
+					
+				Next
+				
+			End If
+			
+			i = i + 1
+			field = Word( FieldList, i, "," )
+		Loop Until field = S$ Or field = ""
+		
+		AddrUpdate
+	End Sub
+	
+' Процедура обновления массивов информацией из документа
+	Sub Update
+		
+		' Количество сотрудников
+		If Document.HasItem( EmplInfo ) Then
+			value = Document.GetItemValue( EmplInfo )
+			If value(0) = "" Then
+				Count = -1
+			Else
+				Count = Ubound( value ) - Lbound( value )
+			End If
+		End If
+		If Count < 0 Then 
+			Redim Employees(0)
+		Else
+			Redim Employees(Count) As String
+		End If
+		
+		' Заполнение массивов информацией о сотрудниках
+		For n% = 0 To Ubound( value )
+'			If value(n%) <> "" Then
+'				Employees(n%) = "-"
+'			Else
+			Employees(n%) = value(n%)
+'			End If
+		Next
+		
+		' Список доступа к документу
+		If Document.HasItem( NotesAddr ) Then
+			value = Document.GetItemValue( NotesAddr )
+			Redim Addresses(Ubound( value ))
+			For i% = 0 To Ubound( value )
+				Set nn = New NotesName( value(i%) )
+				Addresses(i%) = nn.Abbreviated
+			Next
+		End If
+	End Sub
+	
+' Очистка всей информации о сотрудниках
+	Sub DeleteAll( ToDocument As Variant )
+		Count = -1
+		Redim Employees(0)
+		Redim Addresses(0)
+		If ToDocument Then Call ArraysToDocument
+	End Sub
+	
+' Добавить готовую строку с информацией о сотруднике
+	Sub AddEmployeeLine( InfoLine As String, ToDocument As Variant )
+		Dim info As String
+		
+		' Подготовка строки с информацией.
+		info = Word( InfoLine, 1, "!" )
+		For n% = 2 To 10
+			S$ = Word( InfoLine, n%, "!" )
+			If S$ = "" Then
+				info = info + "!-"
+			Else
+				info = info + "!" + S$
+			End If
+		Next
+		
+		If FindEmployee( WordLeft( info, 5, "!" ) ) > -1 Then Exit Sub
+		
+		' Запись строки с информацией в массив
+		Count = Count + 1
+		Redim Preserve Employees(Count)
+		Employees(Count) = info
+		Cursor = Count
+		
+		If ToDocument Then
+			AddrUpdate
+			ArraysToDocument
+		End If
+	End Sub
+	
+' Обновить строку с информацией о сотруднике
+	Sub UpdateEmployeeLine( NumLine As Integer, NewLine As String, ToDocument As Variant )
+		Dim info As String
+		
+		If NumLine > Count Or NumLine < 0 Then Exit Sub
+		info = NewLine
+		For n% = 2 To 10
+			S$ = Word( NewLine, n%, "!" )
+			If S$ = "" Then
+				info = info + "!-"
+			Else
+				info = info + "!" + S$
+			End If
+		Next
+		
+		Employees(NumLine) = info
+		Cursor = NumLine
+		
+		If ToDocument Then
+			AddrUpdate
+			ArraysToDocument
+		End If
+	End Sub
+	
+' Возвращает из массива строку с информацией по номеру
+	Function GetEmployeeLine( NumLine As Integer ) As String
+		If NumLine > Count Or NumLine < 0 Then
+			GetEmployeeLine = ""
+			Exit Function
+		End If
+		
+		GetEmployeeLine = Employees(NumLine)
+	End Function
+	
+	
+' Конвертация информации о сотруднике из нескольких полей в одно
+	Sub ConvertToField( EList As String, EOrg As String, EStuff As String, EAddr As String,_
+	EDB As String, AList As String, AStuff As String, AOrg As String, AAddr As String, ToDocument As Variant,_
+	RemoveList As Variant )
+		Dim fields(7) As String
+		
+		If Not Isnull( Arraygetindex( Document.Convert, EList ) ) Then Exit Sub
+		If EList = "" Then Exit Sub
+		If Not Document.HasItem( EList ) Then Exit Sub
+		
+		Count = -1
+		value = Document.GetItemValue( EList )
+		Count = Ubound( value )
+		Redim Employees(Count)
+		For i% = 0 To Count
+			Employees(i%) = value(i%)
+		Next
+		
+		fields(0) = EOrg
+		fields(1) = EStuff
+		fields(2) = EAddr
+		fields(3) = EDB
+		fields(4) = AList
+		fields(5) = AOrg
+		fields(6) = AStuff
+		fields(7) = AAddr
+		
+		For n% = 0 To 7
+			If fields(n%) = "" Then
+				For i% = 0 To Count 
+					If Employees(i%) <> "" Then Employees(i%) = Employees(i%) + "!-"
+				Next
+			Else
+				value = Document.GetItemValue( fields(n%) )
+				For i% = 0 To Count
+					If Employees(i%) <> "" Then
+						If Ubound( value ) <> Count Then
+							Employees(i%) = Employees(i%) + "!-"
+						Elseif value(i%) = "" Then
+							Employees(i%) = Employees(i%) + "!-"
+						Else
+							Employees(i%) = Employees(i%) + "!" + value(i%)
+						End If
+					End If
+				Next
+			End If
+			If fields(n%) <> "" Then Document.RemoveItem( fields(n%) )
+		Next
+		
+		' Флаг об уведомлении
+		v = Document.GetItemValue( NotesAddr )
+		For i% = 0 To Count
+			If Employees(i%) = "-!-!-!-!-!-!-!-!-" Then
+				Employees(i%) = ""
+			Elseif Employees(i%) <> "" Then
+				s1 = Word( Employees(i%), 4, "!" )
+				s2 = Word( Employees(i%), 9, "!" )
+				If s2 <> "-" And Not Isnull( Arraygetindex( v, s1, 0 ) ) Then
+					Employees(i%) = Employees(i%) + "!1"
+				Else
+					Employees(i%) = Employees(i%) + "!0"
+				End If
+			End If
+		Next
+		
+		' Флаг о проведении конвертации
+		Document.Convert = Arrayappend( Document.Convert, EList )
+		
+		If RemoveList Then Document.RemoveItem EList 
+		
+		AddrUpdate
+		If ToDocument Then Call ArraysToDocument
+	End Sub
+	
+' Возвращает дополнительную информацию о сотрудниках из указанных полей.
+' Берется первое значение из первого найденного в документе сотрудника поля.
+' FieldList - сисок полей через запятую без пробелов
+	Function GetFieldsValues( FieldList As String ) As Variant
+		Dim fields() As String
+		Dim TmpStr As String
+		
+		Dim vfirm As NotesView
+		Dim doc As NotesDocument
+		Dim flag As Variant
+		
+		If FieldList = "" Then Exit Function
+		
+		' Формирование списка полей
+		num% = 1
+		s$ = Word( FieldList, num%, "," )
+		Do While s$ <> ""
+			Redim Preserve fields(num% - 1)
+			fields(num% - 1) = s$
+			num% = num% + 1
+			s$ = Word( FieldList, num%, "," )
+			If s$ = fields(num% - 2) Then Exit Do
+		Loop
+		
+		' Базы данных с сотрудниками
+		
+		If FirmDB Is Nothing Then Set FirmDB = New NotesDatabase( Server, DBFirm )
+		If Not FirmDB.IsOpen Then FirmDB.Open Server, DBFirm
+		Set vfirm = FirmDB.GetView( "ByPersonAndFirm" )
+		
+		vfirm.Refresh
+		
+		v = Document.Untitled
+		
+		If Count < 0 Then	'<--- Если сотрудников в списке нет
+			GetFieldsValues = v
+			Exit Function
+		End If
+		
+		Forall empl In Employees
+			TmpStr = Word( empl, 5, "!" )
+			s$ = Word( WordLeft( empl, 2, "!" ), 1, "\" )
+			' Поиск документа сотрудника
+			If TmpStr = "0" Then
+				Set doc = vfirm.GetDocumentByKey( s$, True )
+				
+			End If
+			
+			' Заполнение массива информацией из полей документа
+			flag = True
+			If Not doc Is Nothing Then
+				Forall field In fields
+					If doc.HasItem( field ) Then
+						value = doc.GetItemValue( field )
+						v = Arrayappend( v, value(0) )
+						flag = False
+						Exit Forall
+					End If
+				End Forall
+			End If
+			
+			If flag Then v = Arrayappend( v, "-" )
+			If v(Ubound( v )) = "" Then v(Ubound( v )) =  "-"
+		End Forall
+		
+		GetFieldsValues = Fulltrim( v )
+	End Function
+	
+' Обновляет информацию о сотрудниках в зависимости от типа документа. 
+' В основном это касается заместителей сотрудников.
+	Sub UpdateByType( TypeDoc As String, ToDocument As Variant )
+		Dim empl As NotesDocument
+		Dim viewk As NotesView
+		Dim viewf As NotesView
+		Dim info As String
+		
+		Document.TypeDoc = TypeDoc
+		
+		' Базы данных с сотрудниками.
+		
+		If FirmDB Is Nothing Then Set firmdb = New NotesDatabase( Server, DBFirm )
+		If firmdb.IsOpen Then Set viewf = firmdb.GetView( "ByPersonAndFirm" )
+		
+		' По всем сотрудникам в списке
+		For i% = 0 To Count
+			' Находим сотрудника
+			If Word( Employees(i%), 5, "!" ) = "0" Then
+				Set empl = viewf.GetDocumentByKey( Word( WordLeft( Employees(i%), 2, "!" ), 1, "\"), True )
+			Else
+				Set empl = viewk.GetDocumentByKey( Word( WordLeft( Employees(i%), 2, "!" ), 1, "\"), True )
+			End If
+			
+			' Получаем информацию и обновляем запись.
+			If Not empl Is Nothing Then	Employees(i%) = EmployeeInfo( empl )
+		Next
+		
+		AddrUpdate
+		If ToDocument Then Call ArraysToDocument
+	End Sub
+	
+' Возвращает документ сотрудника, указанного в информации.
+	Function GetDocumentByInfo( info As String ) As NotesDocument
+		Dim view As NotesView
+		Dim key As String
+		
+		Set GetDocumentByInfo = Nothing
+		If info = "" Then Exit Function
+		S$ = Word( info, 5, "!" )
+		
+		If FirmDB Is Nothing Then Set firmdb = New NotesDatabase( Server, DBFirm )
+		If firmdb.IsOpen Then 
+			Set view = firmdb.GetView( "ByPersonAndFirm" )
+		Else
+			Exit Function
+		End If
+		
+		key = Word( WordLeft( info, 2, "!" ), 1, "\")
+		Set GetDocumentByInfo = view.GetDocumentByKey( key, True )
+	End Function
+	
+	
+	
+	
+'*********************************************
+	
+	
+' Запись массивов в документ
+	Private Sub ArraysToDocument
+'		Dim v() As String
+		Dim nn As NotesName
+		Dim item As NotesItem
+		
+		' Сотрудники с заместителями
+		For row% = 0 To Count
+			If Employees(row%) = "-!-!-!-!-!-!-!-!-!-" Then Employees(row%) = "" ' <--- Удаление пустых строк
+		Next
+		Call Document.ReplaceItemValue( EmplInfo, Employees )
+		
+		' Адреса доступа
+		If NotesAddr <> "" Then
+			If Count > -1 Then
+				Call Document.ReplaceItemValue( NotesAddr, Addresses )
+				Redim v(Ubound( Addresses ))
+				For i% = 0 To Ubound( Addresses )
+					Set nn = New NotesName( Addresses(i%) )
+					Addresses(i%) = nn.Canonical
+				Next
+			End If
+			Call Document.ReplaceItemValue( NotesAddr, Addresses )
+			
+			If ExtraParam > 0 Then
+				Set item = Document.GetFirstItem( NotesAddr )
+				item.IsReaders = ( ExtraParam And EP_READERS ) = 1
+				item.IsAuthors = ( ExtraParam And EP_AUTHORS ) = 1
+			End If
+		End If
+		
+	End Sub
+	
+	Function ReplaceSubstr( source As String, substr As String, newsubstr As String ) As String
+		Dim pos As Integer
+		Dim tmp As String
+		
+		pos = Instr( 1, source, substr, 1 )
+		While pos <> 0
+			tmp = Left( source, pos - 1 )
+			tmp = tmp + newsubstr
+			source = tmp + Right( source, Len( source ) - pos - Len( substr ) + 1 )
+			pos = pos + Len( newsubstr )
+			pos = Instr( pos, source, substr, 1 )
+		Wend
+		
+		ReplaceSubstr = source
+	End Function
+	
+	Function GetValueFromAddressBook(username As String, FieldName As String) As Variant
+		
+		tmpValue = Evaluate("@NameLookup([EXHAUSTIVE];""" + UserName+ """;""" + FieldName + """)")
+		tmpValue = tmpValue(0)
+		
+		If Isarray(tmpValue) Then
+			GetValueFromAddressBook = tmpValue(0)
+		Else
+			GetValueFromAddressBook = tmpValue
+		End If
+		
+		
+	End Function
+	
+End Class
+
+'++LotusScript Development Environment:2:1:Word:1:8
+Function Word( Source As String, Count As Integer, Separator As String )
+' Получение i-ой порции информации из строки с разделителями
+' Source - Исходная строка
+' Count - номер слова
+' Separator - разделитель
+' Возвращает: 
+	' Если Separator = "", то исходную строку
+	' Если разделитель не найден, то исходную строку
+	' Если исходная строка пустая, то пустую строку
+	' Если затребованное количество слов (фраз) больше существующего, то пустую строку
+	' Иначе затребованное по счету слово (фразу).
+	
+	Dim tmp As String
+	Dim n As Long
+	Dim posb As Integer
+	Dim pose As Integer
+	Dim length As Integer
+	
+	Word = ""
+	If Source = "" Then Exit Function
+	If Separator = "" Or Instr( Source, Separator ) = 0 Then 
+		Word = Source
+		Exit Function
+	End If
+	
+	length = Len( Separator )
+	pose = 1 - length
+	For n = 1 To Count
+		posb = pose + length
+		pose = Instr( posb, Source, Separator, 1 )
+		If pose = 0 Then Exit For
+	Next
+	
+	If pose <= 0 Then
+		If n = Count Then
+			pose = Len( Source ) + length
+		Else
+			Exit Function
+		End If
+	End If
+	
+	Word = Mid( Source, posb, pose - posb )
+End Function
+'++LotusScript Development Environment:2:1:WordLeft:1:8
+Function WordLeft( Source As String, Count As Integer, Separator As String ) As String
+' Получение с 1-ой по Count-ую порции информации из строки с разделителями
+' Source - Исходная строка
+' Count - количество фраз между разделителями
+' Separator - разделитель
+	
+	Dim n As Integer
+	Dim pos As Integer
+	Dim posb As Integer
+	Dim length As Integer
+	
+	WordLeft = ""
+	If Source = "" Then Exit Function
+	If Count < 1 Then Exit Function
+	If Separator = "" Then
+		WordLeft = Source
+		Exit Function
+	End If
+	
+	pos = Instr( 1, Source, Separator )
+	If pos = 0 Then
+		WordLeft = Source
+		Exit Function
+	End If
+	
+	length = Len( Separator )
+	posb = 1
+	For n = 1 To Count
+		pos = Instr( posb, Source, Separator )
+		If pos = 0 Then	Exit For
+		posb = pos + length
+	Next
+	
+	If n - 1 < Count Then posb = Len( Source ) + length + 1
+	WordLeft = Left( Source, posb - length - 1 )
+End Function
+'++LotusScript Development Environment:2:1:WordRight:1:8
+Function WordRight( Source As String, Count As Integer, Separator As String ) As String
+' Получение с последней по Count-ую порции информации из строки с разделителями
+' Source - Исходная строка
+' Count - количество фраз между разделителями
+' Separator - разделитель
+	
+	Dim n As Long
+	Dim pos As Integer
+	Dim posb As Integer
+	Dim length As Integer
+	
+	WordRight = ""
+	If Source = "" Then Exit Function
+	If Count < 1 Then Exit Function
+	If Separator = "" Then
+		WordRight = Source
+		Exit Function
+	End If
+	length = Len( Separator )
+	
+	' Определяем количество разделителей
+	pos = Instr( Source, Separator )
+	n = 1
+	While pos <> 0
+		n = n + 1
+		pos = Instr( pos + length, Source, Separator )
+	Wend
+	
+	If n <= Count Then
+		WordRight = Source
+		Exit Function
+	End If
+	
+	posb = 1
+	For i% = 1 To n - Count
+		pos = Instr( posb, Source, Separator )
+		posb = pos + length
+	Next
+	
+	WordRight = Right( Source, Len( Source ) - posb + 1 )
+End Function

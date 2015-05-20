@@ -1,0 +1,333 @@
+'++LotusScript Development Environment:2:5:(Options):0:72
+Option Public
+Option Declare
+
+
+'++LotusScript Development Environment:2:5:(Forward):0:1
+Declare Sub AddGroupLSOLD(curdoc, docGr)
+Declare Sub delGroupLS(doc)
+Declare Sub SyncGroupMainLS(curdoc)
+Declare function inGroupLS(curdoc, qPerson)
+Declare Sub errhlibGroup(q)
+Declare Sub AddGroupLS(curdoc, docGr)
+
+'++LotusScript Development Environment:2:5:(Declarations):0:2
+
+'++LotusScript Development Environment:2:2:Initialize:0:10
+
+'++LotusScript Development Environment:2:2:AddGroupLSOLD:1:8
+Sub AddGroupLSOLD(curdoc, docGr)
+	On Error GoTo ErrHnd
+	Dim ses As New NotesSession, dc As NotesDocumentCollection, db As NotesDatabase, dbt As NotesDatabase
+	Dim Server As String, DBName As String, it As NotesItem, item As NotesItem, view As NotesView
+	Dim jj As Long, nam As NotesName, tmpdoc As NotesDocument, res As Variant, res0 As Variant, qwe As Variant
+	Server = ses.CurrentDatabase.Server
+	dbname = ses.CurrentDatabase.FilePath
+	dbname = Left( dbname, Len( dbname ) - Len( ses.CurrentDatabase.FileName ) )
+	
+	If Right( ses.CurrentDatabase.FileName, 3 ) = "nsf" Then
+		DBName = dbname + "template.nsf"
+	Else
+		DBName = dbname + "TEMPLATE.NSF"
+	End If
+	
+	Set db = New NotesDatabase( Server, DBName )
+	If db Is Nothing Then print "Не найдена база шаблонов!" : Exit Sub
+	If curdoc.HasItem("qGroup") Then
+		Set it = curdoc.GetFirstItem("qGroup")
+	Else
+		Set it = curdoc.ReplaceItemValue("qGroup","")
+	End If	
+	If curdoc.HasItem("AdresatsTmp") Then
+		Set item = curdoc.GetFirstItem("AdresatsTmp")
+	Else
+		Set item= curdoc.ReplaceItemValue("AdresatsTmp","")
+	End If
+	Set dbt = New NotesDatabase( ses.CurrentDatabase.Server, StrLeftBack(ses.CurrentDatabase.FilePath,"\") + "\FIRM.NSF")
+	If Not dbt.IsOpen Then Exit Sub ' MsgBox "База данных ""Фирмы"" не найдена.", 48, "Ошибка" :
+	Set view = dbt.getview("(byNotesAddressCA)")
+'	While Not docGr Is Nothing
+'		Call EditorsAccess.AddGroup( doc )
+		it.Values = ArrayUnique(ArrayAppend(it.Values,docGr.Title(0))) 
+'		Call it.AppendToTextList(doc.Title(0))
+		For jj = 0 To UBound(docGr.SignBy)
+			Set nam = New NotesName(docGr.SignBy(jj))
+			Set tmpdoc = view.GetDocumentByKey(nam.Canonical)		
+'			res = Evaluate(|@replacesubstring(@implode(Caller:CallerPhone:NotesAddress:Firm;"%");Caller;Caller+"{гр. | + tit$ + |}")|,tmpdoc)
+			res0= Evaluate(|@implode(Caller:CallerPhone:NotesAddress:Firm;"%")|,tmpdoc)
+			res = Evaluate(|@implode(Caller:CallerPhone:NotesAddress:Firm:"| + docGr.Title(0) +|";"%")|,tmpdoc)
+			If item.Values(0) = "" Then
+				item.Values = res(0)
+			Else
+				qwe = Evaluate(|@Contains(AdresatsTmp;"| + docGr.SignBy(jj) +|")|, curdoc)
+				If qwe(0) = 1 Then
+'					MsgBox res0(0)
+					item.Values = ArrayUnique(ArrayReplace(item.Values, res0(0), res(0)))
+				Else
+					item.Values = ArrayUnique(ArrayAppend(item.Values,res(0))) ' Fulltrim					
+				End If
+			End If
+		Next
+'		Set docGr = dc.GetNextDocument( docGr )
+'	Wend
+	
+'	EditorsAccess.SetAccess
+'	Call ws.CurrentDocument.Refresh
+	Exit Sub
+ErrHnd:  
+	Call errhlibGroup(" AddGroupLS ")
+End Sub
+
+'++LotusScript Development Environment:2:2:delGroupLS:1:8
+Sub delGroupLS(doc)
+	On Error GoTo ErrHnd
+	
+	
+		Exit Sub
+ErrHnd:  
+	Call errhlibGroup(" delGroupLS ")
+End Sub
+
+'++LotusScript Development Environment:2:2:SyncGroupMainLS:1:8
+Sub SyncGroupMainLS(curdoc)
+	On Error GoTo ErrHnd
+	Dim ses As New NotesSession, dc As NotesDocumentCollection, db As NotesDatabase, dbt As NotesDatabase
+	Dim Server As String, DBName As String, it As NotesItem, item As NotesItem, view As NotesView, doc As NotesDocument, viewGroup As NotesView
+	Dim jj As Long, nam As NotesName, tmpdoc As NotesDocument, res As Variant, res0 As Variant, qwe As Variant, mm As Long
+	Server = ses.CurrentDatabase.Server
+	dbname = ses.CurrentDatabase.FilePath
+	dbname = Left( dbname, Len( dbname ) - Len( ses.CurrentDatabase.FileName ) )
+	
+	If Right( ses.CurrentDatabase.FileName, 3 ) = "nsf" Then
+		DBName = dbname + "template.nsf"
+	Else
+		DBName = dbname + "TEMPLATE.NSF"
+	End If
+	
+	Set db = New NotesDatabase( Server, DBName )
+	If db Is Nothing Then Print "Не найдена база шаблонов!" : Exit Sub
+	If curdoc.HasItem("qGroup") Then
+		Set it = curdoc.GetFirstItem("qGroup")
+	Else
+		Set it = curdoc.ReplaceItemValue("qGroup","")
+	End If	
+	If curdoc.qGroup(0) = ""  Then Exit sub
+	If curdoc.HasItem("AdresatsTmp") Then
+		Set item = curdoc.GetFirstItem("AdresatsTmp")
+	Else
+		Set item= curdoc.ReplaceItemValue("AdresatsTmp","")
+	End If
+	Set dbt = New NotesDatabase( ses.CurrentDatabase.Server, StrLeftBack(ses.CurrentDatabase.FilePath,"\") + "\FIRM.NSF")
+	If Not dbt.IsOpen Then Exit Sub ' MsgBox "База данных ""Фирмы"" не найдена.", 48, "Ошибка" :
+	Set view = dbt.getview("(byNotesAddressCA)")
+	Set viewGroup = db.GetView("TemplatePassView")
+	stop
+	ForAll v In it.values	
+			Set doc = viewGroup.Getdocumentbykey(v, true)
+			If Not doc Is Nothing then
+				For jj = 0 To UBound(doc.SignBy)
+				Set nam = New NotesName(doc.SignBy(jj))
+				Set tmpdoc = view.GetDocumentByKey(nam.Canonical)		
+	'			res = Evaluate(|@replacesubstring(@implode(Caller:CallerPhone:NotesAddress:Firm;"%");Caller;Caller+"{гр. | + tit$ + |}")|,tmpdoc)
+				res0= Evaluate(|@implode(Caller:CallerPhone:NotesAddress:Firm;"%")|,tmpdoc)
+				res = Evaluate(|@implode(Caller:CallerPhone:NotesAddress:Firm:"| + doc.Title(0) +|";"%")|,tmpdoc)
+				If item.Values(0) = "" Then
+					item.Values = res(0)
+				Else
+					qwe = Evaluate(|@Contains(AdresatsTmp;"| + doc.SignBy(jj) +|")|, curdoc)
+					If qwe(0) = 1 Then
+	'					MsgBox res0(0)
+						item.Values = ArrayUnique(ArrayReplace(item.Values, res0(0), res(0)))
+					Else
+						item.Values = ArrayUnique(ArrayAppend(item.Values,res(0)))
+					End If
+				End If
+				Next
+			End If ' doc Is Nothing then
+		Set doc = viewGroup.GetNextDocument( doc )
+	End ForAll
+	
+'	EditorsAccess.SetAccess
+'	Call ws.CurrentDocument.Refresh
+	Exit Sub
+ErrHnd:  
+	Call errhlibGroup(" SyncGroupMainLS ")
+End Sub
+
+'++LotusScript Development Environment:2:1:inGroupLS:1:8
+function inGroupLS(curdoc, qPerson)
+	On Error GoTo ErrHnd
+	Dim ses As New NotesSession, dc As NotesDocumentCollection, db As NotesDatabase, dbt As NotesDatabase
+	Dim Server As String, DBName As String, it As NotesItem, item As NotesItem, view As NotesView, doc As NotesDocument, viewGroup As NotesView
+	Dim jj As Long, nam As NotesName, tmpdoc As NotesDocument, res As Variant, res0 As Variant, qwe As Variant, mm As Long, qwe2 As Variant
+	Server = ses.CurrentDatabase.Server
+	dbname = ses.CurrentDatabase.FilePath
+	dbname = Left( dbname, Len( dbname ) - Len( ses.CurrentDatabase.FileName ) )
+	inGroupLS = ""
+	If Right( ses.CurrentDatabase.FileName, 3 ) = "nsf" Then
+		DBName = dbname + "template.nsf"
+	Else
+		DBName = dbname + "TEMPLATE.NSF"
+	End If
+	
+	Set db = New NotesDatabase( Server, DBName )
+	If db Is Nothing Then Print "Не найдена база шаблонов!" : Exit Function
+	If curdoc.HasItem("qGroup") Then
+		Set it = curdoc.GetFirstItem("qGroup")
+	Else
+		Set it = curdoc.ReplaceItemValue("qGroup","")
+	End If	
+	If curdoc.HasItem("AdresatsTmp") Then
+		Set item = curdoc.GetFirstItem("AdresatsTmp")
+	Else
+		Set item= curdoc.ReplaceItemValue("AdresatsTmp","")
+	End If
+	Set dbt = New NotesDatabase( ses.CurrentDatabase.Server, StrLeftBack(ses.CurrentDatabase.FilePath,"\") + "\FIRM.NSF")
+	If Not dbt.IsOpen Then Exit Function ' MsgBox "База данных ""Фирмы"" не найдена.", 48, "Ошибка" :
+	Set view = dbt.getview("(byNotesAddressCA)")
+	Set viewGroup = db.GetView("TemplatePassView")
+	ForAll v In it.values	
+			Set doc = viewGroup.Getdocumentbykey(v, True)
+			If Not doc Is Nothing Then
+'				For jj = 0 To UBound(doc.SignBy)
+					Set nam = New NotesName(qPerson)
+					qwe = Evaluate(|@Contains(SignBy;"| + nam.Canonical + |")|, doc)
+					qwe2 = Evaluate(|@Contains(SignBy;"| + nam.Abbreviated + |")|, doc)
+					If qwe(0) = 1 Or qwe2(0) = 1 Then inGroupLS = doc.title(0)
+'				Next
+			End If ' doc Is Nothing then
+		Set doc = viewGroup.GetNextDocument( doc )
+	End ForAll
+	Exit Function
+ErrHnd:  
+	Call errhlibGroup(" inGroupLS ")
+End Function
+
+'++LotusScript Development Environment:2:2:errhlibGroup:1:8
+Sub errhlibGroup(q)
+	If Err = 0 Or Err = 20 Then Exit Sub
+	Dim s As New NotesSession
+	Dim db As NotesDatabase
+	Dim 	maildoc As NotesDocument
+	Dim it As NotesRichTextItem
+	Set db = s.CurrentDatabase
+	Set maildoc = db.CreateDocument
+	maildoc.form="Memo"
+	Dim it2 As NotesItem
+	Set it2 = maildoc.ReplaceItemValue("sendto","vveprinskiy@roscomsys.ru") 
+'	Set it2 = maildoc.ReplaceItemValue("sendto","")
+'	Call it2.AppendToTextList("adminsystem@roscomsys.ru")
+	If Left( StrLeft(db.FilePath,"\"),3) <> "SED" Or  Left( StrLeft(db.FilePath,"\"),3) <> "STMP" Then 
+'		Call it2.AppendToTextList("Admins_" + Mid( Strleft(db.FilePath,"\"),5))
+	Else
+'		Set it2 = maildoc.ReplaceItemValue("sendto","vveprinskiy@roscomsys.ru") ' '(_/_) 
+	End If
+'	maildoc.sendto="vveprinskiy@roscomsys.ru,adminsystem@roscomsys.ru"
+	Set it = New NotesRichTextItem( maildoc, "body" )
+'%%%%%%%%%%%%%%%%	
+	If Not s.CurrentAgent Is Nothing Then 
+		q = q+ " CurrentAgent = " + s.CurrentAgent.name
+		Print q + " line 17" + db.Server + " error в базе " + db.FilePath + " -> " + db.Title + " " + CStr(Err) + " " + Error$ + " строка: " + CStr(Erl) + " " + q 
+	Else
+		Dim ws As New NotesUIWorkspace
+		If Not ws Is Nothing Then
+			If Not ws.CurrentDocument Is Nothing Then
+				If Not ws.CurrentDocument.Document Is Nothing Then
+					q = ", Form = " + ws.CurrentDocument.Document.GetItemValue("Form")(0)  + q
+					Call it.AppendDocLink(ws.CurrentDocument.Document, ws.CurrentDocument.Document.UniversalID)
+				End If
+			Else
+				If Not ws.CurrentView.View Is Nothing Then
+					q = ", CurrentView = " + ws.CurrentView.View.Name  + q
+					Call it.AppendDocLink(ws.CurrentView.View, ws.CurrentView.View.Name)
+				End If
+			End If
+		End If
+	End If
+'%%%%%%%%%%%%%%%%	
+	If Err <> 4412 Then
+	If InStr(q,"Function searchD@") > 0 And Err = 4005 Then MessageBox "Попробуйте не указывать в строке поиска ковычки и другие спец. символы",16,"Ошибка!" : GoTo qNext
+	'If InStr(q,"Не удается создать файл") > 0 And Err = 4005 Then MessageBox "Попробуйте закрыть все внешние приложения или перезагруить "_
+	'			&"компьютер и попровабоать еще раз."&chr(10)&chr(13)&"Причиной проблемы может также быть наличие спец. символов в названии файла",16,"Ошибка!" : GoTo qNext
+	'If InStr(q,"Не найден объект") > 0 And Err = 4005 Then MessageBox "Текущее содержимое буфера скопировать нельзя.",16,"Ошибка!" : GoTo qNext
+	If Err <> 0 Then MessageBox CStr(Err) + " " + Error$ + " строка: " + CStr(Erl),16,"Ошибка!"
+	If InStr(q,"Файл не существует") > 0 And Err = 4067 Then GoTo qNext
+	If InStr(q,"Instance member EXTRACTFILE does not exist") > 0 And Err = 182 Then GoTo qNext
+	If Err	<> 4000 And Err	<> 4005 And Err <> 20 Then ' не отсылаем лог
+			q = q  + db.Server + " error в базе " + db.FilePath + " -> " + db.Title + " " + CStr(Err) + " " + Error$ + " строка: " + CStr(Erl)
+			maildoc.subject = q 
+			Call it.AppendText(Chr(10)+Chr(13)+q)
+			Call maildoc.Send( False)
+		End If
+	Else
+		MessageBox "Открыто критическое кол-во диалоговых окон! Пожалуйста, закройте несколько диалоговых окон и попробуйте еще раз!",16,"Ошибка Lotus"
+	End If
+qNext:
+	If Err <> 0 Then Resume 0'Next
+End Sub
+
+'++LotusScript Development Environment:2:2:AddGroupLS:1:8
+Sub AddGroupLS(curdoc, docGr)
+	On Error GoTo ErrHnd
+	Dim ses As New NotesSession, dc As NotesDocumentCollection, db As NotesDatabase, dbt As NotesDatabase
+	Dim Server As String, DBName As String, it As NotesItem, item As NotesItem, view As NotesView
+	Dim jj As Long, nam As NotesName, tmpdoc As NotesDocument, res As Variant, res0 As Variant, qwe As Variant
+	Server = ses.CurrentDatabase.Server
+	dbname = ses.CurrentDatabase.FilePath
+	dbname = Left( dbname, Len( dbname ) - Len( ses.CurrentDatabase.FileName ) )
+	
+	If Right( ses.CurrentDatabase.FileName, 3 ) = "nsf" Then
+		DBName = dbname + "template.nsf"
+	Else
+		DBName = dbname + "TEMPLATE.NSF"
+	End If
+	
+	Set db = New NotesDatabase( Server, DBName )
+	If db Is Nothing Then Print "Не найдена база шаблонов!" : Exit Sub
+	If curdoc.HasItem("qGroup") Then
+		Set it = curdoc.GetFirstItem("qGroup")
+	Else
+		Set it = curdoc.ReplaceItemValue("qGroup","")
+	End If	
+	If curdoc.HasItem("AdresatsTmp") Then
+		Set item = curdoc.GetFirstItem("AdresatsTmp")
+	Else
+		Set item= curdoc.ReplaceItemValue("AdresatsTmp","")
+	End If
+	Set dbt = New NotesDatabase( ses.CurrentDatabase.Server, StrLeftBack(ses.CurrentDatabase.FilePath,"\") + "\FIRM.NSF")
+	If Not dbt.IsOpen Then Exit Sub ' MsgBox "База данных ""Фирмы"" не найдена.", 48, "Ошибка" :
+	Set view = dbt.getview("(byNotesAddressCA)")
+'	While Not docGr Is Nothing
+'		Call EditorsAccess.AddGroup( doc )
+		it.Values = FullTrim(ArrayUnique(ArrayAppend(it.Values,docGr.Title(0)))) 
+'		Call it.AppendToTextList(doc.Title(0))
+		For jj = 0 To UBound(docGr.SignBy)
+			Set nam = New NotesName(docGr.SignBy(jj))
+			Set tmpdoc = view.GetDocumentByKey(nam.Canonical)	
+			If Not tmpdoc Is Nothing then
+	'			res = Evaluate(|@replacesubstring(@implode(Caller:CallerPhone:NotesAddress:Firm;"%");Caller;Caller+"{гр. | + tit$ + |}")|,tmpdoc)
+				res0= Evaluate(|@implode(Caller:CallerPhone:NotesAddress:Firm;"%")|,tmpdoc)
+	'			res = Evaluate(|@implode(Caller:CallerPhone:NotesAddress:Firm:"| + docGr.Title(0) +|";"%")|,tmpdoc)
+				If item.Values(0) = "" Then
+					item.Values = res0(0) ' res(0)
+				Else
+	'				qwe = Evaluate(|@Contains(AdresatsTmp;"| + docGr.SignBy(jj) +|")|, curdoc)
+	'				If qwe(0) = 1 Then
+	'					item.Values = ArrayUnique(ArrayReplace(item.Values, res0(0), res(0)))
+	'				Else
+						item.Values = ArrayUnique(ArrayAppend(item.Values,res0(0))) 'res(0))) ' Fulltrim					
+	'				End If
+				End If
+			Else
+				MsgBox "Сотрудник " + docGr.SignBy_1(jj) + " не найден в справочнике организации"
+			End if
+		Next
+'		Set docGr = dc.GetNextDocument( docGr )
+'	Wend
+	
+'	EditorsAccess.SetAccess
+'	Call ws.CurrentDocument.Refresh
+	Exit Sub
+ErrHnd:  
+	Call errhlibGroup(" AddGroupLS ")
+End Sub

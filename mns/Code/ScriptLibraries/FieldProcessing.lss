@@ -1,0 +1,437 @@
+'++LotusScript Development Environment:2:5:(Options):0:74
+Option Public
+'++LotusScript Development Environment:2:5:(Forward):0:1
+Declare Function ElementOfArray( value As String, array As Variant, start As Long ) As Long
+Declare Function GetFirstItemValue( doc As NotesDocument, fieldName As String, n As Long, nothingStr As Variant ) As Variant
+Declare Sub SetFirstItemValue( newValue As Variant, doc As NotesDocument, fieldName As String, n As Long )
+Declare Function Replace_Substring( begin As Long, source As String, string1 As String, string2 As String, compMethod As Integer ) As String
+Declare Sub SetFirstDateItemValue( newValue As Variant, doc As NotesDocument, fieldName As String, n As Long )
+Declare Function GetLastDocNumber( docType As String, server As String, dbName As String, periodCode As String ) As Long
+Declare Function GetElement(S As String, N As Long, Separator As String) As String
+Declare Function Elements(S As String, Separator As String) As Long
+Declare Function MemberArrayOfString(S As String, Array() As String) As Long
+Declare Sub GetArrayOfStringFromString(Array() As String, N As Long, S As String, Separator As String)
+Declare Sub GetArrayFromString( Array As Variant, N As Long, S As String, Separator As String)
+Declare Function PrecisionToDecimalPlaces( precision As Double ) As Integer
+Declare Function GetDouble(value As Variant) As Double
+Declare Function GetSearchDate( searchDate As String ) As String
+Declare Sub RemoveItemElement(doc As NotesDocument, ItemName As String, n As Integer)
+Declare Sub DBVizaDocCancel(ValueDocVID As String)
+
+'++LotusScript Development Environment:2:5:(Declarations):0:2
+
+'++LotusScript Development Environment:2:1:ElementOfArray:1:8
+Function ElementOfArray( value As String, array As Variant, start As Long ) As Long
+	
+	ElementOfArray = -1
+	i& = 0
+	Forall elem In array
+		If i& < start& Goto Continue
+		If ( Lcase( elem ) = Lcase( value ) ) Then 
+			ElementOfArray = i&
+			Exit Function
+		End If
+Continue:
+		i& = i& + 1
+	End Forall
+	
+End Function
+'++LotusScript Development Environment:2:1:GetFirstItemValue:1:8
+Function GetFirstItemValue( doc As NotesDocument, fieldName As String, n As Long, nothingStr As Variant ) As Variant
+	
+'--- Возвращает n-й элемент поля fieldname из документа doc. Если поле или элемент спискового поля отсутствует или равно "",
+'--- то возвращает строку nothingStr
+	Dim item As NotesItem
+	
+	If doc Is Nothing Or fieldName = "" Then
+		GetFirstItemValue = nothingStr
+		Exit Function
+	End If
+	
+	Set item = doc.GetFirstItem( fieldName )
+	If item Is Nothing Then
+		GetFirstItemValue = ""
+	Elseif Ubound(item.Values) >= n Then
+		GetFirstItemValue = item.Values(n)
+	Else
+		GetFirstItemValue = ""
+	End If
+	
+	If GetFirstItemValue = "" Then
+		GetFirstItemValue = nothingStr
+	End If
+	
+End Function
+'++LotusScript Development Environment:2:2:SetFirstItemValue:1:8
+Sub SetFirstItemValue( newValue As Variant, doc As NotesDocument, fieldName As String, n As Long )
+	
+'--- Устанавливает n-й элемент спискового поля fieldname из документа doc в значение newValue
+'--- Если n-й элемент отсутствует, то добавляем значение newValue в конец спискового поля fieldname
+	Dim item As NotesItem
+	Dim values As Variant
+	
+	Set item = doc.GetFirstItem( fieldName )
+	
+'--- Если поле fieldName отсутствует или пустое, то просто присваиваем в него новые значения и выходим
+	If item Is Nothing Then 
+		Call doc.ReplaceItemValue( fieldName, newValue )
+		Exit Sub
+	Else
+		values = item.Values
+		If Not Isnumeric(values(0)) And Ubound(values) = 0 Then
+			If values(0) = "" Then 
+				Call doc.ReplaceItemValue( fieldName, newValue )
+				Exit Sub
+			End If
+		End If
+	End If
+	
+'--- Иначе - устанавливаем новое значение
+	If Ubound(item.Values) >= n Then
+		values = item.Values
+		values(n) = newValue
+		item.Values = values
+	Else         
+		values = item.Values
+		newUbound = Ubound(values) + 1
+		Redim Preserve values(newUbound)
+		values(newUbound) = newValue
+		item.Values = values
+	End If
+	
+End Sub
+'++LotusScript Development Environment:2:1:Replace_Substring:1:8
+Function Replace_Substring( begin As Long, source As String, string1 As String, string2 As String, compMethod As Integer ) As String
+	
+'     begin     - position from which replace
+'     source   - source string in which Replace_Substring searches to replace string1 with string2
+'     string1   - string for which Replace_Substring searches to replace it in source
+'     string2   - new substring
+'     compMethod - comparison method, see Instr() function
+	
+	Dim dest As String
+	
+	len1 = Len(string1)
+	If len1 = 0 Then
+		dest = source
+		Goto EndOfFunction
+	End If
+	
+	pos1 = begin
+	pos2 = Instr(pos1, source, string1, compMethod)
+	While pos2 <> 0
+		dest = dest + Mid(source, pos1, pos2 - pos1) + string2
+		pos1 = pos2 + len1
+		pos2 = Instr(pos1, source, string1, compMethod)
+	Wend
+	dest = dest + Mid(source, pos1)
+	
+EndOfFunction:
+	Replace_Substring = dest
+	
+End Function
+'++LotusScript Development Environment:2:2:SetFirstDateItemValue:1:8
+Sub SetFirstDateItemValue( newValue As Variant, doc As NotesDocument, fieldName As String, n As Long )
+	
+'--- Устанавливает n-й элемент спискового поля fieldname (тип дата) из документа doc в значение newValue
+'--- Если n-й элемент отсутствует, то добавляем значение newValue в конец спискового поля fieldname (тип дата)
+	Dim dt As New NotesDateTime("")     
+	Dim item As NotesItem
+	Dim TmpDateitem As NotesItem
+	Dim values As Variant
+	
+	Set item = doc.GetFirstItem( fieldName )    
+	
+'--- Если поле fieldName отсутствует или пустое, то просто присваиваем в него новые значения и выходим
+	If item Is Nothing Then 
+		dt.LSLocalTime = Cdat(newValue)
+		dt.LocalTime = dt.DateOnly     
+		Call doc.ReplaceItemValue( fieldName, dt )
+		Exit Sub
+	Else
+		values = item.Values
+		If Not Isdate(values(0)) And Ubound(values) = 0 Then
+			If values(0) = "" Then 
+				dt.LSLocalTime = Cdat(newValue)
+				dt.LocalTime = dt.DateOnly     
+				Call doc.ReplaceItemValue( fieldName, dt )
+				Exit Sub
+			End If
+		End If
+	End If
+	
+'--- Иначе - устанавливаем новое значение
+	If Ubound(item.Values) >= n Then
+		values = item.Values
+		values(n) = newValue          
+	Else         
+		values = item.Values
+		newUbound = Ubound(values) + 1          
+		Redim Preserve values(newUbound)
+		values(newUbound) = newValue
+	End If
+	
+	Set TmpDateItem = doc.ReplaceItemValue( "TmpDate", values )          
+	tmp = Evaluate("@SetField(""TmpDate""; @Date(TmpDate))", doc)
+	Call doc.ReplaceItemValue( fieldName, TmpDateItem )
+	Call doc.RemoveItem( "TmpDate")
+	
+End Sub
+'++LotusScript Development Environment:2:1:GetLastDocNumber:1:8
+Function GetLastDocNumber( docType As String, server As String, dbName As String, periodCode As String ) As Long
+'----- Определение последнего порядкового номера документа
+	
+	Dim db As NotesDatabase
+	Dim doc As NotesDocument
+	Dim view As NotesView
+	
+'----- Открываем базу, хранящую документ с последним порядковым номером
+	Set db = New NotesDatabase(server, dbName)
+	
+	Set view = db.GetView( "hDocNumbers" )
+	Do
+		Set doc = view.GetDocumentByKey( docType )
+		If ( doc Is Nothing ) Then
+			GetLastDocNumber = -1
+			periodCode = ""
+			Exit Function
+		End If
+		doc.DocNumber = doc.DocNumber(0) + 1
+		isNotSaveConflict = doc.Save( False, False )
+	Loop Until isNotSaveConflict
+	
+	GetLastDocNumber = doc.DocNumber(0)
+	periodCode = doc.DocPeriodCode(0)
+	
+End Function
+'++LotusScript Development Environment:2:1:GetElement:1:8
+Function GetElement(S As String, N As Long, Separator As String) As String
+	If (S = "") Then
+		Element = ""
+		Exit Function
+	End If
+	LenS& = Len(S)
+	LenSeparator& = Len(Separator)
+	Begin& = 1
+	Position& = Instr(1, S, Separator)
+	For i& = 2 To N
+		Begin& = Position& + LenSeparator&
+		If (Begin& > LenS&) Then
+			GetElement = ""
+			Exit Function
+		End If
+		Position& = Instr(Begin&, S, Separator)
+		If (Position& = 0) Then
+			If (i& = N) Then
+				GetElement = Mid$(S, Begin&)
+				Exit Function
+			Else
+				GetElement = ""
+				Exit Function
+			End If
+		End If
+	Next
+	GetElement = Mid$(S, Begin&, Position& - Begin&)
+End Function
+
+'++LotusScript Development Environment:2:1:Elements:1:8
+Function Elements(S As String, Separator As String) As Long
+	If (S = "") Then
+		Elements = 0
+		Exit Function
+	End If
+	Elements = 1
+	LenS& = Len(S)
+	LenSeparator& = Len(Separator)
+	Position& = Instr(1, S, Separator)
+	While (Position& <> 0) And (Position& + LenSeparator& <= LenS&)
+		Elements = Elements + 1
+		Position& = Instr(Position& + LenSeparator&, S, Separator)
+	Wend
+End Function
+'++LotusScript Development Environment:2:1:MemberArrayOfString:1:8
+Function MemberArrayOfString(S As String, Array() As String) As Long
+	MemberArrayOfString = 0
+	i& = 1
+	Forall  X  In  Array
+		If (Strcompare(S, X) = 0) Then
+			MemberArrayOfString = i&
+			Exit Function
+		End If
+		i& = i& + 1
+	End Forall
+End Function
+'++LotusScript Development Environment:2:2:GetArrayOfStringFromString:1:8
+Sub GetArrayOfStringFromString(Array() As String, N As Long, S As String, Separator As String)
+	
+	If (S = "") Then
+		Exit Sub
+	End If
+	LenS& = Len(S)
+	LenSeparator& = Len(Separator)
+	Begin& = 1
+	Position& = Instr(1, S, Separator)
+	For i& = 1 To N
+		If (Position& <> 0) Then
+			Array(i&) = Mid$(S, Begin&, Position& - Begin&)
+		Else
+			Array(i&) =Mid$(S, Begin&)
+			Exit Sub
+		End If
+		Begin& = Position& + LenSeparator&
+		If (Begin& > LenS&) Then
+			Position& = 0
+		Else
+			Position& = Instr(Begin&, S, Separator)
+		End If
+	Next
+End Sub
+'++LotusScript Development Environment:2:2:GetArrayFromString:1:8
+Sub GetArrayFromString( Array As Variant, N As Long, S As String, Separator As String)
+	
+	If (S = "") Then
+		Exit Sub
+	End If
+	LenS& = Len(S)
+	LenSeparator& = Len(Separator)
+	Begin& = 1
+	Position& = Instr(1, S, Separator)
+	For i& = 0 To N-1
+		If (Position& <> 0) Then
+			Array(i&) = Mid$(S, Begin&, Position& - Begin&)
+		Else
+			Array(i&) =Mid$(S, Begin&)
+			Exit Sub
+		End If
+		Begin& = Position& + LenSeparator&
+		If (Begin& > LenS&) Then
+			Position& = 0
+		Else
+			Position& = Instr(Begin&, S, Separator)
+		End If
+	Next
+End Sub
+'++LotusScript Development Environment:2:1:PrecisionToDecimalPlaces:1:8
+Function PrecisionToDecimalPlaces( precision As Double ) As Integer
+	
+'--- Функция преобразует точность округления, заданную в виде 0.01, в вид 2 (количество точек после запятой)     
+	Dim decimalPlaces As Integer
+	
+	Select Case precision
+	Case 1: decimalPlaces = 0
+	Case 0.1: decimalPlaces = 1
+	Case 0.01: decimalPlaces = 2
+	Case 0.001: decimalPlaces = 3
+	Case 0.0001: decimalPlaces = 4
+	Case 0.00001: decimalPlaces = 5
+	Case 0.000001: decimalPlaces = 6
+	Case 0.0000001: decimalPlaces = 7
+	Case 0.00000001: decimalPlaces = 8
+	Case 0.000000001: decimalPlaces = 9
+	Case 0.0000000001: decimalPlaces = 10
+	Case 10: decimalPlaces = -1
+	Case 100: decimalPlaces = -2
+	Case 1000: decimalPlaces = -3
+	Case Else: decimalPlaces = 0
+	End Select
+	
+	PrecisionToDecimalPlaces = decimalPlaces
+	
+End Function
+'++LotusScript Development Environment:2:1:GetDouble:1:8
+Function GetDouble(value As Variant) As Double
+	If Isnumeric(value) Then 
+		GetDouble = value
+	Else
+		If value = "" Then 
+			GetDouble = 0
+		Else
+			GetDouble = Cdbl(value)                
+		End If
+	End If
+End Function
+'++LotusScript Development Environment:2:1:GetSearchDate:1:8
+Function GetSearchDate( searchDate As String ) As String
+	
+	GetSearchDate = "@Date(" + Str(Year(searchDate)) + ";" + Str(Month(searchDate)) + ";" + Str(Day(searchDate)) + ")"
+	
+End Function
+'++LotusScript Development Environment:2:2:RemoveItemElement:1:8
+Sub RemoveItemElement(doc As NotesDocument, ItemName As String, n As Integer)
+	Dim i As Integer
+	Dim j As Integer
+	Dim textList As Variant
+	Dim outList As Variant
+	Dim TmpDateitem As NotesItem
+	
+	textList = doc.GetItemValue(ItemName)    
+	If Ubound(textlist)>0 Then
+		Redim outList(Ubound(textList)-1) As Variant   
+		j = 0
+		For i = 0 To Ubound(textlist)         
+			If i <>n-1 Then     
+				outList(j) = textList(i)         
+				j = j + 1
+			End If
+		Next
+	Else
+		Call doc.ReplaceItemValue(ItemName,Nothing)      
+		Exit Sub
+	End If
+	Call doc.ReplaceItemValue(ItemName,outList)       
+End Sub
+'++LotusScript Development Environment:2:2:DBVizaDocCancel:1:8
+Sub DBVizaDocCancel(ValueDocVID As String)
+	
+	Dim s As New NotesSession
+	'Dim ws As New NotesUIworkspace
+	Dim db As NotesDatabase
+	Dim tempdb As NotesDatabase
+	Dim view As NotesView
+	'Dim uidoc As NotesUIDocument
+	'Dim curdoc As NotesDocument
+	Dim tmpdoc As NotesDocument
+	Dim doc As NotesDocument
+	
+	Dim collection As NotesDocumentCollection
+	
+	Set db = s.CurrentDatabase
+	server = db.Server
+	dbName = db.FilePath
+	
+     '----- Открываем базу данных "Согласование"
+	If Right( dbName, 3 ) = "nsf" Then
+		dbName = Mid( dbName, 1, Len( dbName ) - Len( db.FileName ) ) & "docum.nsf"
+	Elseif Right( dbName, 3 ) = "NSF" Then
+		dbName = Mid( dbName, 1, Len( dbName ) - Len( db.FileName ) ) & "DOCUM.NSF"
+	End If 
+	Set tempdb = New NotesDatabase(server, dbName)
+	If Not tempdb.IsOpen Then
+		Messagebox "Не могу открыть базу Согласование", MB_OK, "Ошибка"          
+		Exit Sub
+	End If     
+	
+	
+	' отбираем документы 
+	Set collection = tempdb.Search("Status=""In Review""&@Contains( DocUID; ValueDocVID)", Nothing,0)
+	
+	Set doc = collection.GetFirstDocument()
+	
+	While Not(doc Is Nothing)
+		' снимаем с огласования
+		If doc.DocUID(0)=ValueDocVID Then
+			doc.CompletionDate=Now
+			doc.Completion="Снят с согласования"
+			doc.CompletionSign="Снят с согласования автоматически. Документ, выставленный на согласование,  ОТМЕНЕН."
+			
+			Call doc.Save(False,False)
+		End If
+		On Error Goto ErrMes
+		Set doc = collection.GetNextDocument(doc)
+	Wend
+	Goto EndS
+	
+ErrMes: 
+	Messagebox "Вы не имеете право на снятие этого документа с согласования. Обратитесь к ответственному лицу за документ.", MB_OK, "Ошибка"     
+EndS:	
+End Sub

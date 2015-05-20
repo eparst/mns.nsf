@@ -1,0 +1,597 @@
+'++LotusScript Development Environment:2:5:(Options):0:72
+Option Public
+Option Declare
+Use "ProgressBar"
+
+'++LotusScript Development Environment:2:5:(Forward):0:1
+Declare Sub queryOpenImageTASK(Cont)
+Declare Function fOpenDocAndWait15( pstrDocPath As String, plngWindowStyle As Long ) As Long
+Declare Function fFindEXE15(stFile As String, _
+stDir As String) As String
+Declare Sub ShellWait15(Pathname As String, WindowStyle As Long)
+Declare Sub errh15(q)
+Declare Sub queryOpenImageRDV(Cont)
+Declare Sub queryOpenImageForReadRDV(Cont)
+
+'++LotusScript Development Environment:2:5:(Declarations):0:10
+'** ShellExecute will open a file using the registered file association on the computer.
+'** If it returns a value of greater than 32 then the call was successful; otherwise
+'** it should return one of the error codes below. The parameters are:
+'**		hwnd = an active window handle, or 0
+'**		operation = "edit", "explore", "find", "open", or "print"
+'**		fileName = a file or directory name
+'**		parameters = if fileName is an executable file, the command line parameters
+'**							to pass when launching the application, or "" if no parameters
+'**							are necessary
+'**		directory = the default directory to use, or "" if you don't care
+'**		displayType = one of the displayType constants listed below
+Declare Function ShellExecute15 Lib "shell32" Alias "ShellExecuteA" _
+(ByVal hwnd As Long, ByVal operation As String, ByVal fileName As String, _
+ByVal parameters As String, ByVal directory As String, ByVal displayType As Long) As Long
+
+'** FindExecutable will determine the executable file that is set up to open a particular
+'** file based on the file associations on this computer. If it returns a value of greater than
+'** 32 then the call was successful; otherwise it should return one of the error codes 
+'** below. The parameters are:
+'**		fileName = the full path to the file you are trying to find the association for
+'**		directory = the default directory to use, or "" if you don't care
+'**		retAssociation = the associated executable will be returned as this parameter,
+'**							with a maximum string length of 255 characters (you will want
+'**							to pass a String that's 256 characters long and trim the 
+'**							null-terminated result)
+Declare Function FindExecutable15 Lib "shell32" Alias "FindExecutableA" _
+(ByVal fileName As String, ByVal directory As String, ByVal retAssociation As String) As Long
+
+
+Type STARTUPINFO15
+	cb As Long
+	lpReserved As String
+	lpDesktop As String
+	lpTitle As String
+	dwX As Long
+	dwY As Long
+	dwXSize As Long
+	dwYSize As Long
+	dwXCountChars As Long
+	dwYCountChars As Long
+	dwFillAttribute As Long
+	dwFlags As Long
+	wShowWindow As Integer
+	cbReserved2 As Integer
+	lpReserved2 As Long
+	hStdInput As Long
+	hStdOutput As Long
+	hStdError As Long
+End Type
+Type PROCESS_INFORMATION15
+	hProcess As Long
+	hThread As Long
+	dwProcessID As Long
+	dwThreadID As Long
+End Type
+
+Declare Function WaitForSingleObject15 Lib "kernel32" (ByVal _
+hHandle As Long, ByVal dwMilliseconds As Long) As Long
+
+Declare Function CreateProcessA15 Lib "kernel32" (ByVal lpApplicationName As Long, ByVal lpCommandLine As String, ByVal _
+lpProcessAttributes As Long, ByVal lpThreadAttributes As Long, ByVal bInheritHandles As Long, ByVal dwCreationFlags As Long, _
+ByVal lpEnvironment As Long, ByVal lpCurrentDirectory As Long, lpStartupInfo As STARTUPINFO15, lpProcessInformation As PROCESS_INFORMATION15) As Long
+
+Declare Function CloseHandle15 Lib "kernel32" (ByVal  hObject As Long) As Long
+'=================
+Const cMAX_PATH15 = 260
+Const ERROR_NOASSOC15 = 31
+'Const ERROR_FILE_NOT_FOUND = 2&
+'Const ERROR_PATH_NOT_FOUND = 3&
+'Const ERROR_BAD_FORMAT = 11&
+Const ERROR_OUT_OF_MEM15 = 0
+Declare Function apiFindExecutable15 Lib "shell32.dll" Alias "FindExecutableA" (ByVal lpFile As String, _
+ByVal lpDirectory As String, ByVal lpResult As String) As Long
+'Dim colimage As NotesDocumentCollection
+
+'Dim uidoc As NotesUIDocument
+'
+'Dim view As NotesView
+'Dim rtitem As NotesRichTextItem
+'Dim tmp As Variant
+
+
+'++LotusScript Development Environment:2:2:queryOpenImageTASK:1:8
+Sub queryOpenImageTASK(Cont)
+	On Error GoTo ErrHnd	
+'(_/_)	'		
+	Dim pb As New LNProgressbar( True )
+	Call pb.SetProgressRange ( 4 )
+	Call pb.SetProgressPos( 1 )
+	Call pb.SetText( "Подождите... Данные загружаются с сервера!", "" )
+'(_/_)	'		
+	Dim ws As New NotesUIWorkspace, dc As NotesDocumentCollection, doc As NotesDocument, imagedoc As NotesDocument,  pardoc As NotesDocument
+	Dim curdb As NotesDatabase, ss As New NotesSession, curdoc As NotesDocument, TempDir$, lastdir$, patch$, qwert As Variant, formname$
+	Dim patch2$, result&, exe$, res As Variant, patchOLD$, newpatch, fileName$
+	Const SW_SHOW = 5
+	Set dc = ws.CurrentView.Documents
+	If dc.Count <> 1 Then MsgBox "Выбирите один документ!" : Exit Sub
+	Set doc = dc.GetFirstDocument 
+	If doc.Form(0) = "link" Or doc.Form(0) = "comment" Or InStr(ss.Platform,"Windows") = 0 Then Cont = True : Exit Sub
+	Cont = False	
+	Dim rtitem As NotesRichTextItem	
+	Dim object As NotesEmbeddedObject
+	Set rtitem = doc.GetFirstItem("body" )	
+	TempDir$ = Environ("Temp")			
+	lastdir$ = ss.GetEnvironmentString("lastdir")
+	patch$ = TempDir$+"\" + rtitem.EmbeddedObjects(0).Source
+	Call pb.SetProgressPos( 4 )
+	Delete pb 	'(_/_)	'		
+	If InStr(ss.Platform,"Windows") = 0 Then ' то черз launch first ole и будут лишние клики, 
+' то же самое, если не найдено зарегистрированное приложение!!!!!!!!!!
+otherteam:
+		Call ws.DialogBox( "fimageNONEwind" , True , True , False , False , False , False,  "Работа с вложением " + StrRight(patch$,"\") , doc , False , False , False ) 
+		Exit Sub
+	End If
+nochmal:
+	Dim tmp As NotesDocument
+	Set tmp = ss.CurrentDatabase.CreateDocument 
+	tmp.NewFName = rtitem.EmbeddedObjects(0).Source
+	tmp.type = "Открыть"
+	qwert = Evaluate({@IsMember("[CanEditAllDocs]"; @UserRoles)&@contains(DefaultEditors;"[CanEditAllDocs]") },doc)
+	If IsNull( ArrayGetIndex(doc.AuthorNames, ss.UserName) ) And qwert(0) = 0 Then ' Or doc.SZak(0) <> "" Then 
+		formname$ = "dlgfileRead" 
+	Else
+		formname$ = "dlgfile"
+	End If
+	If ws.DialogBox(formname$, True , True , False , False , False , False,  "Работа с вложением " + StrRight(patch$,"\") , tmp, False , False , False ) Then
+		Call rtitem.EmbeddedObjects(0).ExtractFile( patch$ )
+		Select Case tmp.type(0)
+		Case "Удалить": 
+			If tmp.del(0) = "Подтвердите удаление" Then
+				Call doc.RemoveItem("Body")		 ' пустой образ пропадет из view и ночной агент его потом удалит
+				Call doc.Save(True,True)
+				Kill patch$ 
+			End If
+		Case "Переименовать": 
+			If tmp.NewFName(0) = "" Then MsgBox "Введите новое имя файла!" : GoTo nochmal
+			Kill patch$ 
+			patch2$ = TempDir$+"\" +tmp.NewFName(0)			
+			Call rtitem.EmbeddedObjects(0).ExtractFile( patch2$ )
+			Call doc.RemoveItem("Body")		
+			doc.InView = tmp.NewFName(0)
+			Set rtitem = New NotesRichTextItem(doc,"Body")
+			Set object = rtitem.EmbedObject( EMBED_ATTACHMENT, "", patch2$) ' TempDir$+"\" & typ$+o.Source)		
+			rtitem.Update		
+			Call doc.Save(True,True)
+			Kill patch2$ 				
+		Case "Открыть":
+			result& = ShellExecute15(0, "open", patch$, "", "", SW_SHOW)
+			If result& = 31 Then
+				Call  fOpenDocAndWait15(patch$,0)
+			Else
+				exe$ = Space$(256)
+				result& = FindExecutable15(fileName$, "", exe$)
+				exe$ = Left$(exe$, InStr(exe$, Chr(0)) - 1)
+			End If
+		Case "Сохранить на диск":			
+			newpatch = ws.SaveFileDialog( False , "Укажите путь для сохранения на диск" , ,StrRightBack(rtitem.EmbeddedObjects(0).Source,".")  ,rtitem.EmbeddedObjects(0).Source  )
+			If IsEmpty(newpatch) Then Exit Sub ' Msgbox "ничего не выбрано..." :
+'			If newpatch(0) = "" Then Msgbox "Введите имя файла!" : Goto nochmal
+			Call rtitem.EmbeddedObjects(0).ExtractFile( newpatch(0) )
+			res = Evaluate(|@FileDir("|+ Replace(newpatch(0) ,"\","\\") + |")|,curdoc)	
+			lastdir$ = res(0)
+			Call ss.SetEnvironmentVar("lastdir",lastdir$)
+		Case "Изменить":
+'			patchOLD$ = patch$
+			patchOLD$ = TempDir$+"\" + rtitem.EmbeddedObjects(0).Source
+			patch$ = TempDir$+"\" + Replace(Replace(Replace(CStr(Now())," ","_"),".",""),":","_") + "." + StrRightBack(rtitem.EmbeddedObjects(0).Source,".") ' TempDir$+"\" & o.Source
+			FileCopy patchOLD$  , patch$ ' переименование, потому что со спец. символами проблема
+			Select Case fOpenDocAndWait15(patch$,0)
+			Case 17 : GoTo otherteam ' Msgbox "Can't perform requested operation"
+			Case 53 : MsgBox "File not found"
+			Case 0 :
+				On Error 70 Resume Next
+				Kill patchOLD$ 	
+				FileCopy  patch$, patchOLD$
+				Call doc.RemoveItem("Body")		
+				Set rtitem = New NotesRichTextItem(doc,"Body")
+				Set object = rtitem.EmbedObject( EMBED_ATTACHMENT, "", patchOLD$) ' TempDir$+"\" & typ$+o.Source)		
+				rtitem.Update		
+				Call doc.Save(True,True)
+				Kill patch$ 		
+				Kill patchOLD$ 	
+				MsgBox "Вложение изменено"
+			End Select
+			
+		End Select
+		Call ws.ViewRefresh
+	End If ' первый диалогбокс
+	Cont = False
+	Exit Sub
+ErrHnd:  
+	MsgBox 	CStr(Err) + " " + Error$ + " строка: " + CStr(Erl)
+	Call errh15(" queryOpenDocinView  " + ws.CurrentView.ViewName)
+End Sub
+
+'++LotusScript Development Environment:2:1:fOpenDocAndWait15:1:8
+Function fOpenDocAndWait15( pstrDocPath As String, plngWindowStyle As Long ) As Long
+	
+	On Error GoTo Err_Handler
+	
+	Dim strFileName As String, strFolder As String, strExePath As String, strCommandLine As String, Q As String 
+	Q = ""
+	
+	strFileName = Dir(pstrDocPath)
+	If Len(strFileName) = 0 Then
+		fOpenDocAndWait15 = 53 ' File not found
+		Exit Function
+	End If
+	
+	strFolder = Left$(pstrDocPath, Len(pstrDocPath) - Len(strFileName))
+	strExePath = Trim(Replace(fFindEXE15(strFileName, strFolder), Chr(0), " "))
+	If Len(strExePath) = 0 Then
+		fOpenDocAndWait15 = 17 ' Can't perform requested operation
+	ElseIf strExePath Like "Error:*" Then
+		fOpenDocAndWait15 = 17 ' Can't perform requested operation
+	Else
+		If InStr(LCase(strExePath),"winword") > 0 Then strExePath = strExePath + " /w "
+		strCommandLine = Q & strExePath & Q & " " & Q & pstrDocPath & Q
+		ShellWait15 strCommandLine, plngWindowStyle
+		fOpenDocAndWait15 = 0
+	End If
+	
+Exit_Point:
+	Exit Function
+Err_Handler:
+'fOpenDocAndWait = Err.Number
+	Resume Exit_Point
+	
+End Function
+
+'++LotusScript Development Environment:2:1:fFindEXE15:2:8
+Function fFindEXE15(stFile As String, _
+stDir As String) As String
+Const ERROR_FILE_NOT_FOUND = 2		'The specified file was not found. 
+Const ERROR_PATH_NOT_FOUND = 3	'The specified path was not found. 
+Const ERROR_BAD_FORMAT = 11			'The .exe file is invalid (non-Microsoft Win32® .exe or error in .exe image). 
+'Usage Example:
+'   ?fFindEXE("test.xls","c:\temp")
+'
+	Dim lpResult As String
+	Dim lngRet As Long
+	
+	lpResult = Space(cMAX_PATH15)
+	lngRet = apiFindExecutable15(stFile, stDir, lpResult)
+	
+	If lngRet > 32 Then
+		fFindEXE15 = lpResult
+	Else
+		Select Case lngRet
+			
+		Case ERROR_NOASSOC15: fFindEXE15 = "Error: No Association"
+		Case ERROR_FILE_NOT_FOUND: fFindEXE15 = "Error: File Not Found"
+		Case ERROR_PATH_NOT_FOUND: fFindEXE15 = "Error: Path Not Found"
+		Case ERROR_BAD_FORMAT:  fFindEXE15 = "Error: Bad File Format"
+		Case ERROR_OUT_OF_MEM15:  fFindEXE15 = "Error: Out of Memory"
+		End Select
+	End If
+End Function
+
+'++LotusScript Development Environment:2:2:ShellWait15:1:8
+Sub ShellWait15(Pathname As String, WindowStyle As Long)
+	Dim proc As PROCESS_INFORMATION15
+	Dim start As STARTUPINFO15
+	Dim ret As Long
+	Const NORMAL_PRIORITY_CLASS = &H20&
+	Const INFINITE = -1&
+%REM
+	With start
+		.cb = Len(start)
+		If Not IsMissing(WindowStyle) Then
+			.dwFlags = STARTF_USESHOWWINDOW
+			.wShowWindow = WindowStyle
+		End If
+	End With
+%END REM
+  ' Start the shelled application:
+	ret& = CreateProcessA15(0&, Pathname, 0&, 0&, 1&, NORMAL_PRIORITY_CLASS, 0&, 0&, start, proc)
+    ' Wait for the shelled application to finish:
+	ret& = WaitForSingleObject15(proc.hProcess, INFINITE)
+	ret& = CloseHandle15(proc.hProcess)
+End Sub
+
+'++LotusScript Development Environment:2:2:errh15:1:8
+Sub errh15(q)
+	If Err = 0 Or Err = 20 Then Exit Sub
+	Dim s As New NotesSession
+	Dim db As NotesDatabase
+	Dim 	maildoc As NotesDocument
+	Dim it As NotesRichTextItem
+	Set db = s.CurrentDatabase
+	Set maildoc = db.CreateDocument
+	maildoc.form="Memo"
+	Dim it2 As NotesItem
+	Set it2 = maildoc.ReplaceItemValue("sendto","vveprinskiy@roscomsys.ru") 
+'	Set it2 = maildoc.ReplaceItemValue("sendto","")
+'	Call it2.AppendToTextList("adminsystem@roscomsys.ru")
+	If Left( StrLeft(db.FilePath,"\"),3) <> "SED" Or  Left( StrLeft(db.FilePath,"\"),3) <> "STMP" Then 
+'		Call it2.AppendToTextList("Admins_" + Mid( Strleft(db.FilePath,"\"),5))
+	Else
+'		Set it2 = maildoc.ReplaceItemValue("sendto","vveprinskiy@roscomsys.ru") ' '(_/_) 
+	End If
+'	maildoc.sendto="vveprinskiy@roscomsys.ru,adminsystem@roscomsys.ru"
+	Set it = New NotesRichTextItem( maildoc, "body" )
+'%%%%%%%%%%%%%%%%	
+	If Not s.CurrentAgent Is Nothing Then 
+		q = q+ " CurrentAgent = " + s.CurrentAgent.name
+		Print q + " line 17" + db.Server + " error в базе " + db.FilePath + " -> " + db.Title + " " + CStr(Err) + " " + Error$ + " строка: " + CStr(Erl) + " " + q 
+	Else
+		Dim ws As New NotesUIWorkspace
+		If Not ws Is Nothing Then
+			If Not ws.CurrentDocument Is Nothing Then
+				If Not ws.CurrentDocument.Document Is Nothing Then
+					q = ", Form = " + ws.CurrentDocument.Document.GetItemValue("Form")(0)  + q
+					Call it.AppendDocLink(ws.CurrentDocument.Document, ws.CurrentDocument.Document.UniversalID)
+				End If
+			Else
+				If Not ws.CurrentView.View Is Nothing Then
+					q = ", CurrentView = " + ws.CurrentView.View.Name  + q
+					Call it.AppendDocLink(ws.CurrentView.View, ws.CurrentView.View.Name)
+				End If
+			End If
+		End If
+	End If
+'%%%%%%%%%%%%%%%%	
+	If InStr(LCase(q),"function searchd@") > 0 And Err = 4005 Then MessageBox "Попробуйте не указывать в строке поиска ковычки и другие спец. символы",16,"Ошибка!" : GoTo qNext
+	'If InStr(q,"Не удается создать файл") > 0 And Err = 4005 Then MessageBox "Попробуйте закрыть все внешние приложения или перезагруить "_
+	'			&"компьютер и попровабоать еще раз."&chr(10)&chr(13)&"Причиной проблемы может также быть наличие спец. символов в названии файла",16,"Ошибка!" : GoTo qNext
+	'If InStr(q,"Не найден объект") > 0 And Err = 4005 Then MessageBox "Текущее содержимое буфера скопировать нельзя.",16,"Ошибка!" : GoTo qNext
+	If Err <> 0 Then MessageBox CStr(Err) + " " + Error$ + " строка: " + CStr(Erl),16,"Ошибка!"
+	If Erl = 66 And Err = 4067 Then GoTo qNext
+	If InStr(LCase(q),LCase("Файл не существует")) > 0 And Err = 4067 Then GoTo qNext
+	If InStr(LCase(q),LCase("Instance member EXTRACTFILE does not exist")) > 0 And Err = 182 Then GoTo qNext
+	If Err	<> 4000 And Err	<> 4005 And Err <> 20 Then ' не отсылаем лог
+			q = q  + db.Server + " error в базе " + db.FilePath + " -> " + db.Title + " " + CStr(Err) + " " + Error$ + " строка: " + CStr(Erl)
+			maildoc.subject = q 
+			Call it.AppendText(Chr(10)+Chr(13)+q)
+			Call maildoc.Send( False)
+	End If
+
+qNext:
+	If Err <> 0 Then Resume 0'Next
+End Sub
+
+'++LotusScript Development Environment:2:2:queryOpenImageRDV:1:8
+Sub queryOpenImageRDV(Cont)
+	On Error GoTo ErrHnd	
+'(_/_)	'		
+'	Dim pb As New LNProgressbar( True )
+'	Call pb.SetProgressRange ( 4 )
+'	Call pb.SetProgressPos( 1 )
+'	Call pb.SetText( "Подождите... Данные загружаются с сервера!", "" )
+'(_/_)	'		
+	Dim ws As New NotesUIWorkspace, dc As NotesDocumentCollection, doc As NotesDocument, imagedoc As NotesDocument,  pardoc As NotesDocument
+	Dim curdb As NotesDatabase, ss As New NotesSession, curdoc As NotesDocument, TempDir$, lastdir$, patch$, qwert As Variant, formname$
+	Dim patch2$, result&, exe$, res As Variant, patchOLD$, newpatch, fileName$, res1 As Variant, res2 As Variant
+	Const SW_SHOW = 5
+	Set dc = ws.CurrentView.Documents
+	If dc.Count <> 1 Then MsgBox "Выбирите один документ!" : Exit Sub
+	Set doc = dc.GetFirstDocument 
+	If doc.Form(0) = "link" Or doc.Form(0) = "comment" Then 	Cont = True : Exit Sub
+	If doc.Form(0) <> "fimage" Then	Cont = True : Exit Sub
+	Cont = False	
+	Dim rtitem As NotesRichTextItem	
+	Dim object As NotesEmbeddedObject
+	Set rtitem = doc.GetFirstItem("Body" )	
+	If Not doc.HasItem("Body") Then Set rtitem = doc.GetFirstItem("Document" )	
+	TempDir$ = Environ("Temp")			
+	lastdir$ = ss.GetEnvironmentString("lastdir")
+	patch$ = TempDir$+"\" + rtitem.EmbeddedObjects(0).Source
+'	Call pb.SetProgressPos( 4 )
+'	Delete pb 	'(_/_)	'		
+	If InStr(ss.Platform,"Windows") = 0 Then ' то черз launch first ole и будут лишние клики, 
+' то же самое, если не найдено зарегистрированное приложение!!!!!!!!!!
+otherteam:
+		Call ws.DialogBox( "fimageNONEwind" , True , True , False , False , False , False,  "Работа с вложением " + StrRight(patch$,"\") , doc , False , False , False ) 
+		Exit Sub
+	End If
+nochmal:
+	Dim tmp As NotesDocument
+	Set tmp = ss.CurrentDatabase.CreateDocument 
+	tmp.NewFName = rtitem.EmbeddedObjects(0).Source
+	tmp.type = "Открыть"
+	res1 = Evaluate({@contains(DefaultEditors;"[CanEditAllDocs]")},doc)
+	res2 = Evaluate({@contains(@UserRoles;"[CanEditAllDocs]")})
+	If (IsNull( ArrayGetIndex(doc.AuthorNames, ss.UserName) ) And Not (res1(0)=1 And res2(0)=1) ) Or doc.SZak(0) <> "" Then 
+		formname$ = "dlgfileRead" 
+	Else
+		formname$ = "dlgfile"
+	End If
+	If ws.DialogBox(formname$, True , True , False , False , False , False,  "Работа с вложением " + StrRight(patch$,"\") , tmp, False , False , False ) Then
+		Call rtitem.EmbeddedObjects(0).ExtractFile( patch$ )
+		Select Case tmp.type(0)
+		Case "Удалить": 
+			If tmp.del(0) = "Подтвердите удаление" Then
+				Call doc.RemoveItem("Body")		 ' пустой образ пропадет из view и ночной агент его потом удалит
+				Call doc.Save(True,True)
+				Kill patch$ 
+			End If
+		Case "Переименовать": 
+			If tmp.NewFName(0) = "" Then MsgBox "Введите новое имя файла!" : GoTo nochmal
+			Kill patch$ 
+			patch2$ = TempDir$+"\" +tmp.NewFName(0)			
+			Call rtitem.EmbeddedObjects(0).ExtractFile( patch2$ )
+			Call doc.RemoveItem("Body")		
+			doc.InView = tmp.NewFName(0)
+			Set rtitem = New NotesRichTextItem(doc,"Body")
+			Set object = rtitem.EmbedObject( EMBED_ATTACHMENT, "", patch2$) ' TempDir$+"\" & typ$+o.Source)		
+			rtitem.Update		
+			Call doc.Save(True,True)
+			Kill patch2$ 				
+		Case "Открыть":
+			result& = ShellExecute15(0, "open", patch$, "", "", SW_SHOW)
+			If result& = 31 Then
+				Call  fOpenDocAndWait15(patch$,0)
+			Else
+				exe$ = Space$(256)
+				result& = FindExecutable15(fileName$, "", exe$)
+				exe$ = Left$(exe$, InStr(exe$, Chr(0)) - 1)
+			End If
+		Case "Сохранить на диск":			
+			newpatch = ws.SaveFileDialog( False , "Укажите путь для сохранения на диск" , ,StrRightBack(rtitem.EmbeddedObjects(0).Source,".")  ,rtitem.EmbeddedObjects(0).Source  )
+			If IsEmpty(newpatch) Then Exit Sub ' Msgbox "ничего не выбрано..." :
+'			If newpatch(0) = "" Then Msgbox "Введите имя файла!" : Goto nochmal
+			Call rtitem.EmbeddedObjects(0).ExtractFile( newpatch(0) )
+			res = Evaluate(|@FileDir("|+ Replace(newpatch(0) ,"\","\\") + |")|,curdoc)	
+			lastdir$ = res(0)
+			Call ss.SetEnvironmentVar("lastdir",lastdir$)
+		Case "Изменить":
+'			patchOLD$ = patch$
+			patchOLD$ = TempDir$+"\" + rtitem.EmbeddedObjects(0).Source
+			patch$ = TempDir$+"\" + Replace(Replace(Replace(CStr(Now())," ","_"),".",""),":","_") + "." + StrRightBack(rtitem.EmbeddedObjects(0).Source,".") ' TempDir$+"\" & o.Source
+			FileCopy patchOLD$  , patch$ ' переименование, потому что со спец. символами проблема
+			Select Case fOpenDocAndWait15(patch$,0)
+			Case 17 : GoTo otherteam ' Msgbox "Can't perform requested operation"
+			Case 53 : MsgBox "File not found"
+			Case 0 :
+'				On Error 70 Resume Next
+'				On Error 75 Resume Next
+				Kill patchOLD$ 	
+				FileCopy  patch$, patchOLD$
+				Call doc.RemoveItem("Body")		
+				Set rtitem = New NotesRichTextItem(doc,"Body")
+				Set object = rtitem.EmbedObject( EMBED_ATTACHMENT, "", patchOLD$) ' TempDir$+"\" & typ$+o.Source)		
+				rtitem.Update		
+				Call doc.Save(True,True)
+				Kill patch$ 		
+				Kill patchOLD$ 	
+				MsgBox "Вложение изменено"
+			End Select
+			
+		End Select
+		Call ws.ViewRefresh
+	End If ' первый диалогбокс
+	Cont = False
+	Exit Sub
+ErrHnd:  
+'	If Erl = 101 Or Erl = 102 Or Erl = 51 Or Erl = 63 Or Erl = 95 Or Erl = 81 Or Erl = 89 Then Msgbox 	Error$ + Chr(10) + Chr(13) + "Попробуйте закрыть все приложения или перезагрузить компьютер."+ Chr(10) + Chr(13) + "Если ошибка повториться обратитесь в тех. поддежку" : Exit Sub
+'   Resume Next  : Exit Sub
+	MsgBox 	CStr(Err) + " " + Error$ + " строка: " + CStr(Erl)
+	Call errh15(" queryOpenImage  " )
+End Sub
+
+'++LotusScript Development Environment:2:2:queryOpenImageForReadRDV:1:8
+Sub queryOpenImageForReadRDV(Cont)
+	On Error GoTo ErrHnd	
+'(_/_)	'		
+'	Dim pb As New LNProgressbar( True )
+'	Call pb.SetProgressRange ( 4 )
+'	Call pb.SetProgressPos( 1 )
+'	Call pb.SetText( "Подождите... Данные загружаются с сервера!", "" )
+'(_/_)	'		
+	Dim ws As New NotesUIWorkspace, dc As NotesDocumentCollection, doc As NotesDocument, imagedoc As NotesDocument,  pardoc As NotesDocument
+	Dim curdb As NotesDatabase, ss As New NotesSession, curdoc As NotesDocument, TempDir$, lastdir$, patch$, qwert As Variant, formname$
+	Dim patch2$, result&, exe$, res As Variant, patchOLD$, newpatch, fileName$, res1 As Variant, res2 As Variant
+	Const SW_SHOW = 5
+	Set dc = ws.CurrentView.Documents
+	If dc.Count <> 1 Then MsgBox "Выбирите один документ!" : Exit Sub
+	Set doc = dc.GetFirstDocument 
+	If doc.Form(0) = "link" Then Cont = True : Exit Sub 
+	If doc.Form(0) = "comment" Then 	
+		Call ws.DialogBox( doc.Form(0) , True , True , True , False , True , True,  "Просмотр", doc , True , False , False ) 
+		Cont = False
+		Exit Sub
+	End If
+	If doc.Form(0) <> "fimage" Then	Cont = True : Exit Sub
+	Cont = False	
+	Dim rtitem As NotesRichTextItem	
+	Dim object As NotesEmbeddedObject
+	Set rtitem = doc.GetFirstItem("Body" )	
+	If Not doc.HasItem("Body") Then Set rtitem = doc.GetFirstItem("Document" )	
+	TempDir$ = Environ("Temp")			
+	lastdir$ = ss.GetEnvironmentString("lastdir")
+	patch$ = TempDir$+"\" + rtitem.EmbeddedObjects(0).Source
+'	Call pb.SetProgressPos( 4 )
+'	Delete pb 	'(_/_)	'		
+	If InStr(ss.Platform,"Windows") = 0 Then ' то черз launch first ole и будут лишние клики, 
+' то же самое, если не найдено зарегистрированное приложение!!!!!!!!!!
+otherteam:
+		Call ws.DialogBox( "fimageNONEwind" , True , True , False , False , False , False,  "Работа с вложением " + StrRight(patch$,"\") , doc , False , False , False ) 
+		Exit Sub
+	End If
+nochmal:
+	Dim tmp As NotesDocument
+	Set tmp = ss.CurrentDatabase.CreateDocument 
+	tmp.NewFName = rtitem.EmbeddedObjects(0).Source
+	tmp.type = "Открыть"
+'	res1 = Evaluate({@contains(DefaultEditors;"[CanEditAllDocs]")},doc)
+'	res2 = Evaluate({@contains(@UserRoles;"[CanEditAllDocs]")})
+'	If (Isnull( Arraygetindex(doc.AuthorNames, ss.UserName) ) And Not (res1(0)=1 And res2(0)=1) ) Or doc.SZak(0) <> "" Then 
+	formname$ = "dlgfileRead" 
+'	Else
+'		formname$ = "dlgfile"
+'	End If
+	If ws.DialogBox(formname$, True , True , False , False , False , False,  "Работа с вложением " + StrRight(patch$,"\") , tmp, False , False , False ) Then
+		Call rtitem.EmbeddedObjects(0).ExtractFile( patch$ )
+		Select Case tmp.type(0)
+		Case "Удалить": 
+			If tmp.del(0) = "Подтвердите удаление" Then
+				Call doc.RemoveItem("Body")		 ' пустой образ пропадет из view и ночной агент его потом удалит
+				Call doc.Save(True,True)
+				Kill patch$ 
+			End If
+		Case "Переименовать": 
+			If tmp.NewFName(0) = "" Then MsgBox "Введите новое имя файла!" : GoTo nochmal
+			Kill patch$ 
+			patch2$ = TempDir$+"\" +tmp.NewFName(0)			
+			Call rtitem.EmbeddedObjects(0).ExtractFile( patch2$ )
+			Call doc.RemoveItem("Body")		
+			doc.InView = tmp.NewFName(0)
+			Set rtitem = New NotesRichTextItem(doc,"Body")
+			Set object = rtitem.EmbedObject( EMBED_ATTACHMENT, "", patch2$) ' TempDir$+"\" & typ$+o.Source)		
+			rtitem.Update		
+			Call doc.Save(True,True)
+			Kill patch2$ 				
+		Case "Открыть":
+			result& = ShellExecute15(0, "open", patch$, "", "", SW_SHOW)
+			If result& = 31 Then
+				Call  fOpenDocAndWait15(patch$,0)
+			Else
+				exe$ = Space$(256)
+				result& = FindExecutable15(fileName$, "", exe$)
+				exe$ = Left$(exe$, InStr(exe$, Chr(0)) - 1)
+			End If
+		Case "Сохранить на диск":			
+			newpatch = ws.SaveFileDialog( False , "Укажите путь для сохранения на диск" , ,StrRightBack(rtitem.EmbeddedObjects(0).Source,".")  ,rtitem.EmbeddedObjects(0).Source  )
+			If IsEmpty(newpatch) Then Exit Sub ' Msgbox "ничего не выбрано..." :
+'			If newpatch(0) = "" Then Msgbox "Введите имя файла!" : Goto nochmal
+			Call rtitem.EmbeddedObjects(0).ExtractFile( newpatch(0) )
+			res = Evaluate(|@FileDir("|+ Replace(newpatch(0) ,"\","\\") + |")|,curdoc)	
+			lastdir$ = res(0)
+			Call ss.SetEnvironmentVar("lastdir",lastdir$)
+		Case "Изменить":
+'			patchOLD$ = patch$
+			patchOLD$ = TempDir$+"\" + rtitem.EmbeddedObjects(0).Source
+			patch$ = TempDir$+"\" + Replace(Replace(Replace(CStr(Now())," ","_"),".",""),":","_") + "." + StrRightBack(rtitem.EmbeddedObjects(0).Source,".") ' TempDir$+"\" & o.Source
+			FileCopy patchOLD$  , patch$ ' переименование, потому что со спец. символами проблема
+			Select Case fOpenDocAndWait15(patch$,0)
+			Case 17 : GoTo otherteam ' Msgbox "Can't perform requested operation"
+			Case 53 : MsgBox "File not found"
+			Case 0 :
+				Kill patchOLD$ 	
+				FileCopy  patch$, patchOLD$
+				Call doc.RemoveItem("Body")		
+				Set rtitem = New NotesRichTextItem(doc,"Body")
+				Set object = rtitem.EmbedObject( EMBED_ATTACHMENT, "", patchOLD$) ' TempDir$+"\" & typ$+o.Source)		
+				rtitem.Update		
+				Call doc.Save(True,True)
+				Kill patch$ 		
+				Kill patchOLD$ 	
+				MsgBox "Вложение изменено"
+			End Select
+			
+		End Select
+		Call ws.ViewRefresh
+	End If ' первый диалогбокс
+	Cont = False
+	Exit Sub
+ErrHnd:  
+	MsgBox 	CStr(Err) + " " + Error$ + " строка: " + CStr(Erl)
+	Call errh15(" queryOpenImageForRead  " + ws.CurrentView.ViewName)
+End Sub

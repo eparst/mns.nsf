@@ -1,0 +1,54 @@
+'++LotusScript Development Environment:2:5:(Options):0:74
+Option Public
+'++LotusScript Development Environment:2:5:(Forward):0:1
+Declare Sub AddDocCollection( main As NotesDocumentCollection, dc As NotesDocumentCollection )
+Declare Function GetAllResponce( doc As NotesDocument ) As NotesDocumentCollection
+
+'++LotusScript Development Environment:2:5:(Declarations):0:2
+
+'++LotusScript Development Environment:2:2:AddDocCollection:1:8
+Sub AddDocCollection( main As NotesDocumentCollection, dc As NotesDocumentCollection )
+	Dim doc As NotesDocument
+	
+	If dc Is Nothing Or main Is Nothing Then Exit Sub
+	If dc.Count = 0 Then Exit Sub
+	
+	Set doc = dc.getFirstDocument
+	While Not doc Is Nothing
+		Call main.AddDocument( doc )
+		Set doc = dc.GetNextDocument( doc )
+	Wend
+End Sub
+'++LotusScript Development Environment:2:1:GetAllResponce:1:8
+Function GetAllResponce( doc As NotesDocument ) As NotesDocumentCollection
+	Dim ses As New NotesSession
+	Dim dc As NotesDocumentCollection
+	Dim main As NotesDocumentCollection
+	Dim tempdc As NotesDocumentCollection
+	Dim tempdoc As NotesDocument
+	
+	Set dc = doc.Responses
+	
+	If dc Is Nothing Then
+		Set GetAllResponce = Nothing
+		Exit Function
+	End If
+	
+	If dc.Count = 0 Then
+		Set GetAllResponce = dc
+		Exit Function
+	End If
+	
+	' Добавляем документы к коллекции
+	Set main = dc
+	Set tempdc = doc.Responses
+	Set doc = tempdc.GetFirstDocument
+	While Not doc Is Nothing 
+		Set tempdoc = doc
+		Set dc = GetAllResponce( doc )
+		Call AddDocCollection( main, dc )
+		Set doc = tempdc.GetNextDocument( tempdoc )
+	Wend
+	
+	Set GetAllResponce = main
+End Function

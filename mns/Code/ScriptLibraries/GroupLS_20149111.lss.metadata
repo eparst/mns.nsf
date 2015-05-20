@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?><note class="filter" maintenanceversion="1.2" replicaid="43257E3C0027808F" version="9.0" xmlns="http://www.lotus.com/dxl">
+<noteinfo noteid="1216" sequence="1" unid="488B3EA7676A8B6743257E4A00499164">
+<created><datetime>20150519T162333,48+03</datetime></created>
+<modified><datetime>20150519T162333,78+03</datetime></modified>
+<revised><datetime>20150519T162333,77+03</datetime></revised>
+<lastaccessed><datetime>20150519T162333,78+03</datetime></lastaccessed>
+<addedtofile><datetime>20150519T162333,78+03</datetime></addedtofile></noteinfo>
+<updatedby><name>CN=Lotus Designer/O=PKC</name></updatedby>
+<wassignedby><name>CN=Lotus Designer/O=PKC</name></wassignedby>
+<item name="$TITLE" sign="true"><text>GroupLS_20149111</text></item>
+<item name="$Flags"><text>s34Q</text></item>
+<item name="$PublicAccess" sign="true"><text>1</text></item>
+
+</note>

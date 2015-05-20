@@ -1,0 +1,38 @@
+<?xml version='1.0' encoding='utf-8'?>
+<note class='view' xmlns='http://www.lotus.com/dxl' version='9.0' maintenanceversion='1.2'
+ replicaid='43257E3C0027808F'>
+<noteinfo noteid='47a' unid='44257B1D00403A6344257BC5002672CA' sequence='5'>
+<created><datetime>20130812T105957,54+04</datetime></created>
+<modified><datetime>20150519T161034,79+03</datetime></modified>
+<revised><datetime>20150519T161034,78+03</datetime></revised>
+<lastaccessed><datetime>20150519T161034,79+03</datetime></lastaccessed>
+<addedtofile><datetime>20150519T161034,77+03</datetime></addedtofile></noteinfo>
+<updatedby><name>CN=Lotus Designer/O=PKC</name></updatedby>
+<wassignedby><name>CN=Lotus Designer/O=PKC</name></wassignedby>
+<item name='$FormulaClass' sign='true'><text>1</text></item>
+<item name='$TITLE' sign='true'><text>(filedlg)</text></item>
+<item name='$Index' sign='true'><text/></item>
+<item name='$Formula' summary='true' sign='true'><formula compiled='true'>
+iAACACQAAgAkMgUACgAkdXBkYXRlZGJ5AAAAAAAAAADwPyACAwACAAwAAgAkM2kAAwAFACgAJAAF
+AAIAAgAFAAkABAAkMiQzRlBBVEgkQ29uZmxpY3QkUkVGBAAEAAAAHAAFAAQARm9ybQEABwBmaWxl
+ZGxnAAoCAwAHAA4ACAAJTDFTMlMzUw==
+</formula></item>
+<item name='$Collation' summary='true'>
+<rawitemdata type='2'>
+JAADAABEgGYAAAACAIFmAAIAAgAAZgAEAAUAJDIkM0ZQQVRI
+</rawitemdata></item>
+<item name='$ViewFormat' summary='true' sign='true'>
+<rawitemdata type='5'>
+AQADAAQACAAAAFZDAQACAAAAMgAAAHIAAQAACgAAAAAAAAAAAAICAAAAVkMFAAIAAAAOAAAAogAB
+AAAKAAAAAAAAAAAAAgIAAABWQwEABQABAAAAAACnAQEAAAoAAAAAAAAAAAACAgAAACQyMgACACQA
+AgAkMgUACgAkdXBkYXRlZGJ5AAAAAAAAAADwPyACAwAHAAwABQAJMFMwRQAkMw4AAgAMAAIAJDNp
+AAMARlBBVEgjJgABAAAAAQEACQEAAAoBAQ4KAAABAK0rAQABAAEAAAAAAAAAAABXQwEBAAkAAAAA
+AAAAAAAAAAAAAAAAAAAEAAAAAAD//wAAAAAAAAAAAAAAAAAAV0MBAQAJAAAAAAAAAAAAAAAAAAAA
+AAAABAAAAAAA//8AAAAAAAAAAAAAAAAAAFdDAQEACQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//
+AAAAAAAAAAAAAAAAAABCAAAAAAABAP///wAFAP///wABAAAAAAAAAAAAAAAAAAEA////AAEA////
+AAAAAQAAAAAAAQAAAAAAAQAAAAAAAAAIAAAAAAABAA==
+</rawitemdata></item>
+<item name='$Comment' sign='true'><text/></item>
+<item name='$Flags'><text>PY</text></item>
+<item name='$DesignerVersion'><text>8.5</text></item></note>
+

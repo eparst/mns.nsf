@@ -1,0 +1,399 @@
+'++LotusScript Development Environment:2:5:(Options):0:72
+%REM
+	Library NewVersion
+	Created Apr 12, 2012 by Lotus Designer/PKC
+	Description: Comments for Library
+%END REM
+Option Public
+Option Declare
+Use "errh"
+
+
+'++LotusScript Development Environment:2:5:(Forward):0:1
+Declare Function CurrFormDoc(curdb As NotesDatabase) As Variant
+Declare Sub getresp( doc As NotesDocument, col )
+Declare Function  FromMain(db, FieldName$)
+Declare Sub makeimg(db As NotesDatabase,docSource As NotesDocument,BodyName$,i,oldunid$)
+Declare Function exst(dbTask,docSource) As Boolean
+Declare Sub qData
+Declare Function exstImg(unid$,qName$) As Boolean
+Declare function qN(qName$) As string
+
+'++LotusScript Development Environment:2:5:(Declarations):0:10
+
+'++LotusScript Development Environment:2:2:Terminate:0:10
+
+'++LotusScript Development Environment:2:1:CurrFormDoc:1:8
+Function CurrFormDoc(curdb As NotesDatabase) As Variant
+'	On Error Goto ErrHnd	
+	Dim tmp As String
+	
+	If InStr( LCase(curdb.FileName), "indoc") > 0 Then 	tmp = "DocIn%Входящий документ%InternalNumber" 
+	If InStr( LCase(curdb.FileName), "outdoc") > 0 Then 	tmp = "DocOut%Исходящий документ%ExternalNumber" 
+	If InStr( LCase(curdb.FileName), "memos") > 0 Then 	tmp = "memos%Служебная Записка%ExternalNumber" 
+	If InStr( LCase(curdb.FileName), "ord") > 0 Then 	tmp = "ORD%РД%InternalNumber" 
+	If InStr( LCase(curdb.FileName), "protokol") > 0 Then 	tmp = "DocProc%Протокол%InternalNumber" 
+	If InStr( LCase(curdb.FileName), "visord") > 0 Then 	tmp = "VisaORD%Проект РД%InternalNumber" 
+	If InStr( LCase(curdb.FileName), "visoutdoc") > 0 Then 	tmp = "DocOut%Проект исх-го документа%InternalNumber" 
+	
+	Dim 	CurrFormDoc0(0 To 2)
+	CurrFormDoc0(0) = StrToken(tmp,"%",1)
+	CurrFormDoc0(1) = StrToken(tmp,"%",2)
+	CurrFormDoc0(2) = StrToken(tmp,"%",3)
+	
+	CurrFormDoc = CurrFormDoc0
+	
+	Exit Function
+ErrHnd:  
+'	Call erh(" Function CurrFormDoc ")
+End Function
+
+'++LotusScript Development Environment:2:2:getresp:1:8
+Sub getresp( doc As NotesDocument, col )
+	Dim collection As NotesDocumentCollection
+	Dim currentResponse As NotesDocument
+	On Error GoTo ErrHnd
+	On Error 4000 Resume Next
+	
+	Set collection = doc.Responses
+	Set currentResponse = collection.GetFirstDocument
+	
+	While Not ( currentResponse Is Nothing )
+		If currentResponse.Form(0) = "task" Then
+			If col.GetDocument(currentResponse) Is Nothing Then
+				Call col.AddDocument(currentResponse)
+			End If
+' Recursive call to put immediate responses to currentResponse in col
+			Call getresp ( currentResponse, col )
+		End If 'if currentResponse.Form(0) = "task"
+		Set currentResponse = collection.GetNextDocument ( currentResponse )
+	Wend
+	
+	Exit Sub
+ErrHnd:
+	MsgBox " Function FromMain, строка: " + CStr(Erl	)
+'	Call errh(" -> sub getresp ")
+End Sub
+
+'++LotusScript Development Environment:2:1:FromMain:1:8
+Function  FromMain(db, FieldName$)
+'	On Error Goto ErrHnd
+	Dim ss As New NotesSession
+	Dim doc As NotesDocument
+	Dim dc As NotesDocumentCollection
+'	Set db = ss.CurrentDatabase
+Dim server As String
+dim	dbName As String
+Dim qqqq$
+	server = db.Server
+	dbName = db.FilePath     
+	
+     '----- Открываем базу данных "Настройка "
+	If Right( dbName, 3 ) = "nsf" Then
+		dbName = Mid( dbName, 1, Len( dbName ) - Len( db.FileName ) ) & "main.nsf"
+	ElseIf Right( dbName, 3 ) = "NSF" Then
+		dbName = Mid( dbName, 1, Len( dbName ) - Len( db.FileName ) ) & "MAIN.NSF"
+	End If 
+	Dim db1 As NotesDatabase
+	Set db1 = New NotesDatabase(server, dbName)
+	If Not db1.IsOpen Then Exit Function ' MsgBox "Не найдена база данных настроек! Отслеживание статуса не возможно!" : 
+	qqqq$ ="Form = ""DbSetup"" & @UpperCase(DbFile) = @UpperCase(""" + db.FileName + """)"
+	Set dc = db1.Search(qqqq$ , Nothing, 0)
+'	Set dc = db1.Search("Form = ""DbSetup"" & @UpperCase(DbFile) = @UpperCase(""" + db.FileName + """)", Nothing, 0)
+	Set doc = dc.GetFirstDocument
+'	If doc Is Nothing Then Call errh(" Function FromMain  Не найден документ настроек! ") : Exit Function
+	FromMain = doc.getitemvalue(FieldName$)(0)
+	Exit Function
+ErrHnd: 
+	MsgBox " Function FromMain, строка: " + CStr(Erl)	+ " " + db.FilePath + " " + FieldName$
+'	Call errh(" Function FromMain ")
+End Function
+
+'++LotusScript Development Environment:2:2:makeimg:1:8
+Sub makeimg(db As NotesDatabase,docSource As NotesDocument,BodyName$,i,oldunid$)
+	On Error Goto errh
+	Dim colimage As NotesDocumentCollection
+	Dim vimage As NotesView
+	Dim ss As New NotesSession
+	Set vimage = db.GetView("(vimage)")
+	Dim rtitem As Variant ' NotesRichTextItem
+	Dim rtitem3 As NotesRichTextItem
+	Dim imagedoc As NotesDocument
+	Dim it1 As NotesItem
+	Dim qres As Variant
+	Dim qres2 As Variant
+	Dim nam As NotesName
+	Dim qExec As Variant
+	Dim img2col As NotesDocumentCollection
+	Dim img2 As NotesDocument
+	Dim object As Variant
+	Dim qq As Long
+	Dim jj As Long
+	Dim ert$
+	Set rtitem = docSource.GetFirstItem( BodyName$ )
+	If Not docSource.hasitem(BodyName$ )Then Exit Sub
+	If Not ( rtitem.Type = RICHTEXT ) Then Exit Sub
+	If IsEmpty(rtitem.EmbeddedObjects) Then Exit Sub
+	i = 0 ' If docSource.Form(0) = "task" Then 
+	ForAll o In rtitem.EmbeddedObjects
+		If ( o.Type = EMBED_ATTACHMENT ) Then
+			If docSource.Form(0) <> "task" And exstImg(docSource.UniversalID, o.name) Then GoTo ForTotask	
+			ert$ = docSource.Form(0) + " - " + docSource.ExternalNumber(0)
+					Stop		
+			Set imagedoc = db.CreateDocument
+			If BodyName$ = "Document" Then imagedoc.project = "1"
+			imagedoc.Form = "fimage"
+			imagedoc.imagedocUnid = docSource.UniversalID
+			imagedoc.imagedocDbRepl = docSource.ParentDatabase.ReplicaID
+			imagedoc.AttachType = docSource.Form(0)
+'%%%%%%%ДОСТУП
+			Set it1 = imagedoc.ReplaceItemValue("AuthorNames_Rep",FromMain(db,"servgroup"))
+			Call it1.AppendToTextList("Cluster_Strong")
+			it1.IsAuthors = True
+			Set it1 = imagedoc.ReplaceItemValue("DefaultEditors",docSource.DefaultEditors) ' docSource.AuthorNames)
+			it1.IsAuthors = True	
+			Set it1 = imagedoc.ReplaceItemValue("DefaultReaders",docSource.DefaultReaders) ' docSource.AuthorNames)
+			it1.IsReaders = True	
+'			imagedoc.DefaultReaders = "[CanReadAllDocs]"
+'			imagedoc.DefaultEditors = "[CanEditAllDocs]"
+'-------------------------------------------------	
+			ReDim qRes3(0 To 0)
+			qres =  Evaluate({@unique( @Name([Canonicalize];CreatorAddr):@Name([Canonicalize];ControllerAddr):AuthorNames)},docSource) 
+			Set it1 = imagedoc.ReplaceItemValue("AuthorNames",qres) ' docSource.AuthorNames)
+			it1.IsAuthors = True	
+'			Set it1 = imagedoc.ReplaceItemValue("Editors",docSource.Editors)
+			If docSource.Form(0) = "task" Then
+'			qres =  Evaluate({@unique( @Name([Canonicalize];ExecutorAddr):@Name([Canonicalize];EXECUTORADDR_1))},docSource) 			
+				If Not imagedoc.Hasitem("ReaderNames") Then
+					Set it1 = imagedoc.ReplaceItemValue("ReaderNames","")
+				Else
+					Set it1 = imagedoc.Getfirstitem("ReaderNames")
+				End If
+				qExec =  FullTrim(Evaluate({@unique( ExecutorAddr:EXECUTORADDR_1)},docSource) 	) ' в головном таске EXECUTORADDR_1 могут быть через "," испльзуется также при sendindoocmain1
+				For qq = 0 To UBound(qExec) 
+					If InStr(qExec(qq),"," ) > 0 Then
+						qres2 = Split(qExec(qq),",")
+						For jj = 0 To UBound(qres2)
+							Set nam = ss.CreateName(qres2(jj))
+							Call it1.Appendtotextlist(nam.Canonical)
+						Next
+					Else
+						Set nam = ss.CreateName(qExec(qq))
+						Call it1.Appendtotextlist(nam.Canonical)
+					End If ' If Instr(doc.ReaderNames(qq),"," ) > 0 
+				Next
+				Call it1.Appendtotextlist(docSource.CONTROLLERADDR(0)) ' ArrayGetIndex(it1.Values,nam.Canonical)
+				Call imagedoc.Replaceitemvalue("ReaderNames", ArrayUnique(it1.values) )		
+			Else '			if docSource.Form(0) = "task" then
+				Set it1 = imagedoc.ReplaceItemValue("ReaderNames",docSource.ReaderNames)	
+			End If'			if docSource.Form(0) = "task" then
+			it1.IsReaders = True	
+'			Set it1 = imagedoc.ReplaceItemValue("Readers",docSource.Readers)
+			If docSource.hasitem("TOTASK") Then 
+				Call vimage.Refresh
+'				Stop ' dbTask.GetDocumentByUNID(doc.ParentDocumentUNID).UniversalID		' Strtoken(docSource.ParDocUnidImage(0),"%",2 )
+				Set img2col = vimage.GetAllDocumentsByKey(docSource.ParentDocumentUNID,True) ' .ParentDocumentUNID) 
+				Set img2 = img2col.getfirstdocument
+				While Not img2 Is Nothing 
+					img2.ReaderNames = ArrayUnique(ArrayAppend(img2.ReaderNames,imagedoc.ReaderNames))	
+					it1.IsReaders = True						
+'					Call img2.save(True,True)
+					Set img2 = img2col.getnextdocument(img2)
+				Wend
+				GoTo ForTotask
+			End If
+			Call o.ExtractFile( Environ("Temp")	+ "\" & qN(o.Source ))				
+			Set rtitem3 = New NotesRichTextItem( imagedoc, BodyName$ )	
+			Set object = rtitem3.EmbedObject( EMBED_ATTACHMENT, "", Environ("Temp")+"\" & qN(o.Source ))
+			Kill Environ("Temp")+"\" & qN(o.Source )
+'			Call o.Remove
+'%%%%%%%	
+			i = i + 1				
+			imagedoc.InView = object.Name	
+'			Call imagedoc.Save(True,True) 			
+ForTotask:
+			End If ' If ( o.Type = EMBED_ATTACHMENT ) Then
+			
+	End ForAll
+	Exit Sub
+errh:
+	Call errh(" Sub makeimg BodyName$= " + BodyName$)
+	
+End Sub
+
+'++LotusScript Development Environment:2:1:exst:4:8
+%REM
+	проверяет, не импортировалось ли раньше уже данное docSource
+%END REM
+Function exst(dbTask,docSource) As Boolean
+	On Error GoTo errhnd
+	Dim NewDoc1 As NotesDocument
+	Dim tmpdoc As NotesDocument
+	Dim ss As New NotesSession
+	
+		exst = false
+		If Not dbTask.GetView("(OldUnid)") Is Nothing Then
+		If Not dbTask.GetView("(OldUnid)").getfirstdocument Is Nothing Then
+			
+			Set NewDoc1 = dbTask.GetView("(OldUnid)").GetDocumentByKey(docSource.UniversalID,True)
+			If Not NewDoc1 Is Nothing Then exst = true
+				
+		End If
+		Else
+	Set tmpdoc = ss.CurrentDatabase.CreateDocument
+ 	tmpdoc.Form = "memo"
+ 	tmpdoc.SendTo = "CN=Вепринский Виталий Львович/O=PKC"
+	tmpdoc.subject = dbTask.FilePath + ": View (OldUnid) is nothing "
+	tmpdoc.send(False)
+	End If
+	Exit Function 
+errhnd:
+	Call errh(" Function exst")
+End Function
+
+'++LotusScript Development Environment:2:2:qData:1:8
+Sub qData
+Dim copyflag As Boolean
+	On Error Goto errh
+'	On Error 4000  GoTo q4000
+	Dim itLog As NotesItem
+	Dim i As Integer, db As NotesDatabase, docSource As NotesDocument, docInherit As NotesDocument
+	Dim flagInherit As Integer, tempName As String
+	Dim dbTask As NotesDatabase
+	Dim logView As NotesView
+	Dim ss As New NotesSession
+	Dim colInside As NotesDocumentCollection
+	Dim nta0 As Long, nta As Long, qform$, nf As Long, nt As Long, nfa As Long, nfa0 As Long
+''''''''''''''''''	
+	Dim tmpdoc As NotesDocument
+		Dim maildoc  As NotesDocument
+	Dim notesDir As Variant
+	Set maildoc = ss.CurrentDatabase.CreateDocument
+ 	maildoc.Form = "memo"
+ 	maildoc.SendTo = "CN=Вепринский Виталий Львович/O=PKC"
+''''''''''''''''''''''''	
+	Dim qMsgBox As String
+	Dim view As NotesView
+	Set db = ss.CurrentDatabase
+	Set view = db.GetView("(OldVersion)")
+	If view Is Nothing Then Set view = db.CreateView("(OldVersion)", |SELECT @TEXT(OldVersion)<>""|,,True)
+	If view.getfirstdocument Is Nothing Then
+			Set tmpdoc = db.CreateDocument
+		Else
+			Set tmpdoc = view.getfirstdocument
+	End If
+	tmpdoc.OldVersion = CStr(Year(Now())) + CStr(Month(Now())) +Cstr(Day(Now()))+"_" +Cstr(Hour(Now()))+"_" +Cstr(Minute(Now()))
+'	Call tmpdoc.save(True,True)	
+	Set view = db.GetView("ForNewVer")
+	If view Is Nothing Then qMsgBox = db.FilePath + ": View ForNewVer is nothing " : GoTo qLog
+	Set dbTask = ss.GetDatabase(db.Server, StrLeftBack(db.FilePath,"\")+"\task.nsf" )
+	Set logView = dbTask.GetView("(LogII)")
+	Set docSource = view.GetFirstDocument
+'(_/_)	
+	If Not docSource Is Nothing Then
+		qform$ = docSource.Form(0)
+	Else
+		qform$ = "none"
+	End If
+	Dim tmp As NotesDocument
+	Dim doc As NotesDocument
+	While Not docSource Is Nothing
+'(_/_)	 вложения для основной карточки
+			If docSource.HasItem("Document") Then 	Call makeimg(db,docSource,"Document",nfa0,docSource.UniversalID)
+			nfa = nfa + nfa0
+			If docSource.HasItem("Body") Then Call makeimg(db,docSource,"Body",nfa0,docSource.UniversalID)
+			nfa = nfa + nfa0
+			If docSource.HasItem("Body1") Then 	Call makeimg(db,docSource,"Body1",nfa0,docSource.UniversalID)
+			nfa = nfa + nfa0
+'(_/_)	 tasks			
+' %REM комментировать если хотим только имаджы вложений в основной базе сделать
+			Set colInside = docSource.Responses
+			Call getresp(docSource, colInside)
+			Set tmp = colInside.GetFirstDocument
+			While Not tmp Is Nothing
+				If Not IsEmpty(tmp.Items)  Then
+					If tmp.Form(0) = "task" And Not exst(dbTask,tmp) Then
+						Set doc = tmp.CopyToDatabase(dbTask)
+						doc.OldUnid = tmp.UniversalID
+						doc.PARDOCDB = db.ReplicaID + "%" + db.FilePath + "%" + db.Title
+						doc.ParDocNumber = docSource.GetItemValue(CurrFormDoc(db)(2) )
+						doc.ParDocDate = docSource.Date(0)	
+						If tmp.TOTASK(0) <> "" Then
+							doc.ParDocUnidImage = dbTask.ReplicaID + "%" + doc.ParentDocumentUNID ' dbTask.GetDocumentByUNID(doc.ParentDocumentUNID).UniversalID
+						Else
+							If doc.HasItem("$REF") Then ' у самого верхнего таск надо реф сносить				!!!!!!!!
+'								If db.GetDocumentByUNID(tmp.ParentDocumentUNID).Form(0) = CurrFormDoc(db)(0) Then doc.RemoveItem("$REF") : Call doc.Save(True,True)
+							End If
+						End If
+						Call makeimg(dbTask,doc,"Body",nta0,tmp.UniversalID) '(_/_)	 вложения для taska
+						nta = nta + nta0
+						doc.IMGCOUNT = nta0
+' Call o.Remove делаю						Call doc.RemoveItem("Body")						
+'						Call doc.Save(True,True)
+						nt = nt + 1
+					End If ' If Not Isempty(doc.Items) Then
+				End If ' 					if doc.Form(0) = "task" then
+				Set tmp = colInside.getnextdocument(tmp)
+			Wend
+			nf = nf + 1
+			Set docSource = view.GetNextDocument(docSource)
+		Wend
+		qMsgBox = qform$  + ": " + CStr(nf) + ", tasks: " + CStr(nt) + + Chr(13)+ Chr(10) + "Вложенией "  + qform$ + ": " + CStr(nfa) + ", вложенией task: " + CStr(nta) 
+'	Msgbox "Элементы успешно скопированны!", 64, "Копирование..."
+
+qlog:
+	maildoc.subject = db.Title + ": " + qMsgBox
+	maildoc.send(False)
+		Exit Sub
+errh:
+	Call errh(" Sub qData ")
+	Exit Sub
+End Sub 
+
+'++LotusScript Development Environment:2:1:exstImg:1:8
+Function exstImg(unid$,qName$) As Boolean
+	On Error GoTo errhnd
+	Dim NewDoc1 As NotesDocument
+	Dim tmpdoc As NotesDocument
+	Dim ss As New NotesSession
+	Dim rtitem As Variant
+	Dim col As NotesDocumentCollection
+	
+	exstImg = False
+			
+		If Not ss.currentdatabase.GetView("(vimageTMP)") Is Nothing Then
+		If Not ss.currentdatabase.GetView("(vimageTMP)").getfirstdocument Is Nothing Then
+	
+			Set col = ss.currentdatabase.GetView("(vimageTMP)").GetallDocumentsByKey(unid$,True)
+			Set NewDoc1 = col.Getfirstdocument()
+			While Not NewDoc1 Is Nothing
+				
+
+				Set rtitem = NewDoc1.GetFirstItem( "Body" )
+				If Not ( rtitem.Type = RICHTEXT ) Then Exit Function
+				If IsEmpty(rtitem.EmbeddedObjects) Then Exit Function 
+				If qN(rtitem.EmbeddedObjects(0).name) = qN(qName$) Then exstImg = True
+
+			Set NewDoc1 = col.Getnextdocument(NewDoc1)
+			Wend				
+		End If
+		
+		Else
+	Set tmpdoc = ss.CurrentDatabase.CreateDocument
+ 	tmpdoc.Form = "memo"
+ 	tmpdoc.SendTo = "CN=Вепринский Виталий Львович/O=PKC"
+	tmpdoc.subject = ss.currentdatabase.FilePath + ": View (vimageTMP) is nothing "
+	tmpdoc.send(False)
+	End If
+	Exit Function 
+errhnd:
+	Call errh(" Function exstImg")
+
+End Function
+
+'++LotusScript Development Environment:2:1:qN:1:8
+function qN(qName$) As string
+
+		qN = fulltrim(Replace(Replace(Replace(qName$,"?","_"),"!","_"),",","_"))
+	
+End Function

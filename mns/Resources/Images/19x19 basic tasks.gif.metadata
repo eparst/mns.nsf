@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?><note class="form" maintenanceversion="1.2" replicaid="43257E3C0027808F" version="9.0" xmlns="http://www.lotus.com/dxl">
+<noteinfo noteid="1286" sequence="1" unid="1E7D3D8FE892827D43257E4A0049ADC0">
+<created><datetime>20150519T162446,08+03</datetime></created>
+<modified><datetime>20150519T162446,25+03</datetime></modified>
+<revised><datetime>20150519T162446,24+03</datetime></revised>
+<lastaccessed><datetime>20150519T162446,25+03</datetime></lastaccessed>
+<addedtofile><datetime>20150519T162446,25+03</datetime></addedtofile></noteinfo>
+<updatedby><name>CN=Lotus Designer/O=PKC</name></updatedby>
+<wassignedby><name>CN=Lotus Designer/O=PKC</name></wassignedby>
+<item name="$ImagesWide" sign="true"><number>1</number></item>
+<item name="$ImagesHigh" sign="true"><number>1</number></item>
+<item name="$ImagesColorize" sign="true"><number>0</number></item>
+<item name="$ImageNames" sign="true"><text>welcome-page-switcher_basics19x19.gif</text></item>
+<item name="$TITLE" sign="true"><textlist><text>19x19 basic tasks.gif</text><text>btasks</text></textlist></item>
+<item name="$LANGUAGE" sign="true"><text>en</text></item>
+<item name="$Class"><text>Bookmarks</text></item>
+<item name="$EditFilePath"><text>C:\Temp\notesC07544\~welcome-page-switcher_basics19x19.gif</text></item>
+<item name="$Flags"><text>34CiQ$</text></item>
+<item name="$DesignerVersion"><text>8.5.3</text></item>
+
+</note>
